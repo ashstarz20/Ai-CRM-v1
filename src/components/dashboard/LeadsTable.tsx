@@ -53,31 +53,26 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   const [isEditingCustomerComment, setIsEditingCustomerComment] =
     useState(false);
 
-  // NEW: State for thread comments
   interface CommentHistoryItem {
     user: string;
     content: string;
     timestamp: string;
   }
-  const [newThreadComment, setNewThreadComment] = useState("");
   const [commentsHistory, setCommentsHistory] = useState<CommentHistoryItem[]>([]);
 
   const itemsPerPage = 20;
 
-  // Combine default and custom statuses
   const statusOptions = useMemo(() => {
     const customStatuses = customKpis.map((kpi) => kpi.label);
     return ["New Lead", "Meeting Done", "Deal Done", ...customStatuses];
   }, [customKpis]);
 
-  // Update customer comment when selected lead changes
   useEffect(() => {
     if (selectedLead) {
       setCustomerComment(String(selectedLead.customerComment || ""));
     }
   }, [selectedLead]);
 
-  // Sync commentsHistory with selectedLead
   useEffect(() => {
     if (selectedLead && Array.isArray(selectedLead.commentsHistory)) {
       setCommentsHistory(selectedLead.commentsHistory);
@@ -86,7 +81,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     }
   }, [selectedLead]);
 
-  // Parse comments into a map of label→value
   const parseComments = (comments: string) => {
     const parts = comments.split(/📢|👤|📞|📍|💰|👶|🏆/).filter(Boolean);
     const labels = [
@@ -105,13 +99,11 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     });
   };
 
-  // Get platform icon and color
   const getPlatformInfo = (platform: string | undefined) => {
     if (!platform) return { icon: null, color: "bg-gray-200 text-gray-800" };
 
     const platformLower = platform.toLowerCase();
 
-    // Check shorthand names first
     if (platformLower === "ig")
       return {
         icon: <FaInstagram className="w-3 h-3" />,
@@ -130,7 +122,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         color: "bg-green-100 text-green-800",
       };
 
-    // Check regular platform names
     if (platformLower.includes("facebook"))
       return {
         icon: <FaFacebookF className="w-3 h-3" />,
@@ -167,7 +158,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         color: "bg-green-100 text-green-800",
       };
 
-    // Default fallback
     return {
       icon: (
         <span className="text-xs font-bold">
@@ -236,7 +226,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         onUpdateCustomerComment(selectedLead.id!, customerComment);
         setIsEditingCustomerComment(false);
 
-        // Add the customer comment to the thread
         if (customerComment.trim()) {
           const user = viewingUserPhone || "User";
           const newComment = {
@@ -245,12 +234,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
             timestamp: new Date().toISOString(),
           };
           let updatedComments = [...commentsHistory, newComment];
-          // Limit to 30 comments
           if (updatedComments.length > 30) {
             updatedComments = updatedComments.slice(updatedComments.length - 30);
           }
           setCommentsHistory(updatedComments);
-          // Optionally, update backend here for commentsHistory
         }
       } catch (error) {
         console.error("Failed to save comment:", error);
@@ -259,16 +246,14 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     }
   };
 
-  // State for sorting
   const [sortingConfig, setSortingConfig] = useState<{
-    field: "name" | "score" | null;
+    field: "date" | "name" | "score" | null;
     direction: "asc" | "desc";
   }>({
     field: null,
     direction: "asc",
   });
 
-  // Filter leads based on search term and filters
   const filteredLeads = useMemo(() => {
     return leads.filter((lead) => {
       const search = searchTerm.trim().toLowerCase();
@@ -288,14 +273,12 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     });
   }, [leads, searchTerm, statusFilter, platformFilter]);
 
-  // Helper to parse lead score from comments
   const parseLeadScore = (comments: string): number | null => {
     const match = comments.match(/🏆 Lead Score: (\d+)/);
     return match ? parseInt(match[1], 10) : null;
   };
 
-  // Handle sorting
-  const handleSort = (field: "name" | "score") => {
+  const handleSort = (field: "date" | "name" | "score") => {
     let direction: "asc" | "desc" = "asc";
     if (sortingConfig.field === field) {
       direction = sortingConfig.direction === "asc" ? "desc" : "asc";
@@ -303,53 +286,16 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     setSortingConfig({ field, direction });
   };
 
-  // Apply sorting to leads
-  const sortedLeadsData = useMemo(() => {
-    if (!sortingConfig.field) return filteredLeads;
-
-    return [...filteredLeads].sort((a, b) => {
-      let valueA: string | number;
-      let valueB: string | number;
-
-      if (sortingConfig.field === "name") {
-        valueA = (a.name || "").toLowerCase();
-        valueB = (b.name || "").toLowerCase();
-      } else {
-        // For score, ensure default values are low so missing scores go to bottom
-        valueA = parseLeadScore(a.comments || "") ?? -Infinity;
-        valueB = parseLeadScore(b.comments || "") ?? -Infinity;
-      }
-
-      if (valueA < valueB) {
-        return sortingConfig.direction === "asc" ? -1 : 1;
-      }
-      if (valueA > valueB) {
-        return sortingConfig.direction === "asc" ? 1 : -1;
-      }
-      return 0;
-    });
-  }, [filteredLeads, sortingConfig]);
-
-  // Then use sortedLeadsData for pagination:
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedItems = sortedLeadsData.slice(
-    startIndex,
-    startIndex + itemsPerPage
-  );
-
-  // Inside the LeadsTable component
   const parseLeadDate = (dateStr: string | undefined): Date | null => {
     if (!dateStr) return null;
 
-    // Try ISO format first
     try {
       const isoDate = parseISO(dateStr);
       if (isValid(isoDate)) return isoDate;
     } catch {
-      // Ignore and try custom format
+      // Ignore parseISO errors
     }
 
-    // Try custom format: "MMM dd, yyyy hh:mm a"
     try {
       const customDate = parse(dateStr, "MMM dd, yyyy hh:mm a", new Date());
       if (isValid(customDate)) return customDate;
@@ -360,34 +306,77 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     return null;
   };
 
-  // Update the sortedLeads calculation
   const sortedLeads = useMemo(() => {
     return [...filteredLeads].sort((a, b) => {
+      // If we have an active sort field, sort by that
+      if (sortingConfig.field) {
+        let valueA: string | number | Date | null = null;
+        let valueB: string | number | Date | null = null;
+
+        switch (sortingConfig.field) {
+          case "date":
+            valueA = a.created_time ? parseLeadDate(a.created_time) : null;
+            valueB = b.created_time ? parseLeadDate(b.created_time) : null;
+            break;
+          case "name":
+            valueA = (a.name || "").toLowerCase();
+            valueB = (b.name || "").toLowerCase();
+            break;
+          case "score":
+            valueA = parseLeadScore(a.comments || "") ?? -Infinity;
+            valueB = parseLeadScore(b.comments || "") ?? -Infinity;
+            break;
+        }
+
+        // Handle date comparison
+        if (sortingConfig.field === "date") {
+          const aTime =
+            valueA instanceof Date && !isNaN(valueA.getTime())
+              ? valueA.getTime()
+              : 0;
+          const bTime =
+            valueB instanceof Date && !isNaN(valueB.getTime())
+              ? valueB.getTime()
+              : 0;
+          return sortingConfig.direction === "asc"
+            ? aTime - bTime
+            : bTime - aTime;
+        }
+
+        // Handle other comparisons
+        if (valueA == null && valueB == null) {
+          return 0;
+        }
+        if (valueA == null) {
+          return sortingConfig.direction === "asc" ? 1 : -1;
+        }
+        if (valueB == null) {
+          return sortingConfig.direction === "asc" ? -1 : 1;
+        }
+        if (valueA < valueB) {
+          return sortingConfig.direction === "asc" ? -1 : 1;
+        }
+        if (valueA > valueB) {
+          return sortingConfig.direction === "asc" ? 1 : -1;
+        }
+        return 0;
+      }
+
+      // Default sorting: newest first
       const aDate = a.created_time ? parseLeadDate(a.created_time) : null;
       const bDate = b.created_time ? parseLeadDate(b.created_time) : null;
-
       const aTime = aDate ? aDate.getTime() : 0;
       const bTime = bDate ? bDate.getTime() : 0;
-
-      return bTime - aTime; // Newest first
+      return bTime - aTime;
     });
-  }, [filteredLeads]);
+  }, [filteredLeads, sortingConfig]);
 
-  // (Removed unused paginatedLeads)
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedItems = sortedLeads.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
 
-  // Get unique statuses for filter dropdown
-  const statuses = Array.from(
-    new Set(leads.map((lead) => lead.lead_status))
-  ).filter(Boolean);
-
-  // Get unique platforms for filter dropdown
-  const platforms = Array.from(
-    new Set(leads.map((lead) => lead.platform))
-  ).filter(Boolean);
-
-  const totalPages = Math.ceil(sortedLeads.length / itemsPerPage);
-
-  // Update the formatDate function
   const formatDate = (dateString: string) => {
     const date = parseLeadDate(dateString);
     if (date) {
@@ -396,19 +385,16 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     return dateString;
   };
 
-  // Extract location from comments
   const extractLocation = (comments: string) => {
     const locationMatch = comments.match(/📍 Location: ([^\n]+)/);
     return locationMatch ? locationMatch[1] : "N/A";
   };
 
-  // Extract lead score from comments
   const extractScore = (comments: string) => {
     const scoreMatch = comments.match(/🏆 Lead Score: (\d+)/);
     return scoreMatch ? parseInt(scoreMatch[1], 10) : null;
   };
 
-  // Get color class based on lead score
   const getScoreColor = (score: number | null) => {
     if (score === null) return "text-gray-500";
     if (score < 50) return "text-red-600 font-bold";
@@ -416,7 +402,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     return "text-green-600 font-bold";
   };
 
-  // Status badge colors
   const getStatusColor = (status: string | undefined) => {
     if (!status) return "bg-gray-100 text-gray-800";
 
@@ -431,7 +416,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     }
   };
 
-  // Format field labels
   const formatLabel = (key: string) => {
     return key
       .replace(/_/g, " ")
@@ -439,7 +423,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
       .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
-  // Format field values
   const formatValue = (key: string, value: unknown) => {
     if (key === "created_time" && value) {
       return formatDate(String(value));
@@ -449,6 +432,16 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     }
     return value !== undefined && value !== null ? String(value) : "N/A";
   };
+
+  const statuses = Array.from(
+    new Set(leads.map((lead) => lead.lead_status))
+  ).filter(Boolean);
+
+  const platforms = Array.from(
+    new Set(leads.map((lead) => lead.platform))
+  ).filter(Boolean);
+
+  const totalPages = Math.ceil(sortedLeads.length / itemsPerPage);
 
   if (isLoading) {
     return (
@@ -474,7 +467,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     );
   }
 
-  // Detail Card Component
   const DetailCard = ({
     label,
     value,
@@ -504,29 +496,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     </div>
   );
 
-  // Handler to add a new comment
-  const handleAddThreadComment = () => {
-    if (!newThreadComment.trim()) return;
-    const user = viewingUserPhone || "User";
-    const newComment = {
-      user,
-      content: newThreadComment.trim(),
-      timestamp: new Date().toISOString(),
-    };
-    let updatedComments = [...commentsHistory, newComment];
-    // Limit to 30 comments
-    if (updatedComments.length > 30) {
-      updatedComments = updatedComments.slice(updatedComments.length - 30);
-    }
-    setCommentsHistory(updatedComments);
-    setNewThreadComment("");
-    // Optionally, update the backend here if needed
-    // e.g., await updateLeadCommentsHistory(selectedLead.id, updatedComments)
-  };
-
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden relative">
-      {/* Search and Filters */}
       <div className="p-4 sm:p-6 border-b border-gray-200">
         <div className="sm:flex sm:items-center sm:justify-between">
           <div className="flex-1">
@@ -588,7 +559,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
       </div>
 
       <div className="flex flex-col md:flex-row h-[calc(100vh-150px)]">
-        {/* Table Container */}
         <div
           className={`transition-all duration-300 ease-in-out ${
             isSidePanelOpen ? "w-full md:w-2/6" : "w-full"
@@ -599,6 +569,20 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
               {!isSidePanelOpen && (
                 <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
+                    {/* DATE COLUMN MOVED TO FIRST POSITION */}
+                    <th
+                      scope="col"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 cursor-pointer"
+                      onClick={() => handleSort("date")}
+                    >
+                      <div className="flex items-center">
+                        Date
+                        <span className="ml-1">
+                          {sortingConfig.field === "date" &&
+                            (sortingConfig.direction === "asc" ? "↑" : "↓")}
+                        </span>
+                      </div>
+                    </th>
                     <th
                       scope="col"
                       className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -642,12 +626,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                             (sortingConfig.direction === "asc" ? "↑" : "↓")}
                         </span>
                       </div>
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Date
                     </th>
                     <th
                       scope="col"
@@ -716,6 +694,12 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                           </td>
                         ) : (
                           <>
+                            {/* DATE CELL MOVED TO FIRST POSITION */}
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-28">
+                              {lead.created_time
+                                ? formatDate(lead.created_time)
+                                : "N/A"}
+                            </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div
                                 className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${platformInfo.color} font-bold`}
@@ -751,11 +735,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                               <div className={`text-sm ${scoreColor}`}>
                                 {score ?? "N/A"}
                               </div>
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-28">
-                              {lead.created_time
-                                ? formatDate(lead.created_time)
-                                : "N/A"}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap relative">
                               <select
@@ -895,7 +874,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
           </div>
         </div>
 
-        {/* Side Panel */}
         <div
           className={`bg-white border-l border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex ${
             isSidePanelOpen ? "w-full md:w-4/6" : "w-0"
@@ -903,7 +881,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         >
           {isSidePanelOpen && selectedLead && (
             <div className="flex flex-col w-full">
-              {/* Header */}
               <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white">
                 <div>
                   <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -924,7 +901,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
 
               <div className="flex-1 overflow-y-auto p-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Combined fields section */}
                   {Object.entries(selectedLead)
                     .filter(
                       ([key]) =>
@@ -978,7 +954,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       }
                     })}
 
-                  {/* Parsed fields from comments */}
                   <DetailCard
                     label="Location"
                     value={
@@ -1010,7 +985,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     }
                   />
 
-                  {/* Lead Score with color */}
                   <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-200">
                     <div className="flex items-start">
                       <span className="font-medium text-gray-700 flex-shrink-0 w-32">
@@ -1026,7 +1000,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </div>
                   </div>
 
-                  {/* NEW: Chat Thread for Comments History */}
                   <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-200 md:col-span-2">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-medium text-gray-700 flex items-center">
@@ -1071,36 +1044,11 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                         </div>
                       )}
                     </div>
-                    {/* Add comment input */}
-                    {/* <div className="mt-4 flex gap-2">
-                      <input
-                        type="text"
-                        value={newThreadComment}
-                        onChange={(e) => setNewThreadComment(e.target.value)}
-                        maxLength={300}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Write a comment..."
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            handleAddThreadComment();
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={handleAddThreadComment}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                        disabled={!newThreadComment.trim()}
-                      >
-                        Add
-                      </button>
-                    </div> */}
                     <div className="text-xs text-gray-400 mt-1 text-right">
                       {commentsHistory.length}/30 comments
                     </div>
                   </div>
 
-                  {/* Editable Customer Comment */}
                   <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-200 md:col-span-2">
                     <div className="flex items-start">
                       <span className="font-medium text-gray-700 flex-shrink-0 w-32">
@@ -1159,7 +1107,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         </div>
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
           <div className="flex-1 flex justify-between items-center">

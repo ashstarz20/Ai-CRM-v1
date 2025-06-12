@@ -1,6 +1,4 @@
-import React from 'react'
-
-const Meta = () => {
+const Meta : React.FC = () => {
   return (
     <div>
       <h1>Campaign - Meta Page</h1>
@@ -8,4 +6,4 @@ const Meta = () => {
   )
 }
 
-export default Meta
+export default Meta;

@@ -1,235 +1,61 @@
-// src/components/layout/Sidebar.tsx
-
-import React, { useState, useCallback, useMemo, ReactNode } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
-  Users,
   BarChart2,
-  Mail,
-  FileText,
+  MessageCircle,
+  Megaphone,
+  Users,
+  ShoppingBag,
+  Calendar,
   Settings,
   X,
   LogOut,
   ChevronDown,
   ChevronUp,
-  Calendar,
-  User,
-  TrendingUp,
-  Award,
   Facebook,
-  Globe as GoogleIcon,
-  MessageCircle,
-  Webhook,
-  Smartphone,
+  Search,
   MessageSquare,
-  Instagram,
-  Twitter,
-  Linkedin
+  User,
+  UserCog,
+  Award,
+  Globe,
+  Smartphone,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
-import { motion, AnimatePresence } from "framer-motion";
 
 interface SidebarProps {
   closeSidebar?: () => void;
 }
 
-interface DropdownItem {
-  to: string;
-  label: string;
-  icon: ReactNode;
-}
-
-interface DropdownProps {
-  name: string;
-  label: string;
-  Icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  items: DropdownItem[];
-  isOpen: boolean;
-  toggle: (name: string) => void;
-  isActive: boolean;
-}
-
-const dropdownVariants = {
-  open: {
-    opacity: 1,
-    height: "auto",
-    transition: { duration: 0.2, ease: "easeInOut" }
-  },
-  closed: {
-    opacity: 0,
-    height: 0,
-    transition: { duration: 0.2, ease: "easeInOut" }
-  }
-};
-
-const MemoizedDropdown: React.FC<DropdownProps> = React.memo(({
-  name,
-  label,
-  Icon,
-  items,
-  isOpen,
-  toggle,
-  isActive
-}) => {
-  return (
-    <div className="mb-1">
-      <button
-        onClick={() => toggle(name)}
-        className={`flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
-          isActive
-            ? "bg-blue-50 text-blue-700"
-            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-        }`}
-      >
-        <div className="flex items-center">
-          <Icon className="mr-3 h-5 w-5" />
-          {label}
-        </div>
-        {isOpen ? (
-          <ChevronUp className="h-4 w-4" />
-        ) : (
-          <ChevronDown className="h-4 w-4" />
-        )}
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial="closed"
-            animate="open"
-            exit="closed"
-            variants={dropdownVariants}
-            className="overflow-hidden"
-          >
-            <div className="pl-8 mt-1 space-y-1">
-              {items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to.endsWith("/all")}
-                  className={({ isActive: active }) =>
-                    `group flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${
-                      active
-                        ? "bg-blue-50 text-blue-700"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                    }`
-                  }
-                >
-                  <span className="mr-3">{item.icon}</span>
-                  {item.label}
-                </NavLink>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-});
-
-// Static dropdown configuration
-const CHAT_ITEMS: DropdownItem[] = [
-  { 
-    to: "/dashboard/chats/all", 
-    label: "All Chats", 
-    icon: <MessageSquare className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/chats/whatsapp", 
-    label: "WhatsApp", 
-    icon: <MessageCircle className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/chats/facebook", 
-    label: "Facebook", 
-    icon: <Facebook className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/chats/instagram", 
-    label: "Instagram", 
-    icon: <Instagram className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/chats/linkedin", 
-    label: "LinkedIn", 
-    icon: <Linkedin className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/chats/twitter", 
-    label: "Twitter", 
-    icon: <Twitter className="h-4 w-4" /> 
-  }
-];
-
-const CAMPAIGN_ITEMS: DropdownItem[] = [
-  { 
-    to: "/dashboard/campaigns/meta", 
-    label: "Meta", 
-    icon: <Facebook className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/campaigns/google", 
-    label: "Google", 
-    icon: <GoogleIcon className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/campaigns/whatsapp", 
-    label: "WhatsApp", 
-    icon: <MessageCircle className="h-4 w-4" /> 
-  }
-];
-
-const CUSTOMER_ITEMS: DropdownItem[] = [
-  { 
-    to: "/dashboard/customers/basic", 
-    label: "Basic", 
-    icon: <User className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/customers/advance", 
-    label: "Advance", 
-    icon: <TrendingUp className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/customers/pro", 
-    label: "Pro", 
-    icon: <Award className="h-4 w-4" /> 
-  }
-];
-
-const SERVICE_ITEMS: DropdownItem[] = [
-  { 
-    to: "/dashboard/services/google", 
-    label: "Google", 
-    icon: <GoogleIcon className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/services/meta", 
-    label: "Meta", 
-    icon: <Facebook className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/services/whatsapp", 
-    label: "WhatsApp", 
-    icon: <MessageCircle className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/services/web", 
-    label: "Web", 
-    icon: <Webhook className="h-4 w-4" /> 
-  },
-  { 
-    to: "/dashboard/services/app", 
-    label: "App", 
-    icon: <Smartphone className="h-4 w-4" /> 
-  }
-];
-
 const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
   const { signOut } = useAuth();
   const location = useLocation();
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const submenuRefs = useRef<{
+    campaigns: HTMLDivElement | null;
+    customers: HTMLDivElement | null;
+    myServices: HTMLDivElement | null;
+  }>({
+    campaigns: null,
+    customers: null,
+    myServices: null,
+  });
+  
+  const [submenuHeights, setSubmenuHeights] = useState({
+    campaigns: 0,
+    customers: 0,
+    myServices: 0,
+  });
+
+  // Measure submenu heights after initial render
+  useEffect(() => {
+    setSubmenuHeights({
+      campaigns: submenuRefs.current.campaigns?.scrollHeight || 0,
+      customers: submenuRefs.current.customers?.scrollHeight || 0,
+      myServices: submenuRefs.current.myServices?.scrollHeight || 0,
+    });
+  }, []);
 
   const handleSignOut = useCallback(async () => {
     try {
@@ -238,15 +64,6 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
       console.error("Error signing out:", error);
     }
   }, [signOut]);
-
-  const toggleDropdown = useCallback((name: string) => {
-    setOpenDropdown((prev) => (prev === name ? null : name));
-  }, []);
-
-  const isDropdownActive = useCallback(
-    (basePath: string) => location.pathname.startsWith(basePath),
-    [location.pathname]
-  );
 
   const getNavLinkClass = useCallback(
     (isActive: boolean) =>
@@ -258,22 +75,21 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
     []
   );
 
-  // Memoize active states for better performance
-  const activeStates = useMemo(() => ({
-    chats: isDropdownActive("/dashboard/chats"),
-    campaigns: isDropdownActive("/dashboard/campaigns"),
-    customers: isDropdownActive("/dashboard/customers"),
-    services: isDropdownActive("/dashboard/services")
-  }), [isDropdownActive]);
+  const toggleMenu = (menu: string) => {
+    setExpandedMenu(prev => prev === menu ? null : menu);
+  };
+
+  const isMenuActive = (path: string) => 
+    location.pathname.startsWith(`/dashboard${path}`);
 
   return (
     <div className="h-full flex flex-col bg-white border-r border-gray-200">
       {/* Header */}
       <div className="flex items-center justify-between h-16 flex-shrink-0 px-4 bg-white border-b border-gray-200">
         <div className="flex items-center">
-          <img 
-            src="/logo.png" 
-            alt="Logo" 
+          <img
+            src="/logo.png"
+            alt="Logo"
             className="w-8 h-8 rounded-full animate-pulse [animation-duration:5s]"
           />
           <span className="ml-2 text-xl font-semibold text-gray-900">
@@ -294,9 +110,9 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
       {/* Navigation */}
       <div className="flex-1 flex flex-col overflow-y-auto">
         <nav className="px-2 py-4 space-y-1 flex-grow">
-          <NavLink 
-            to="/dashboard" 
-            end 
+          <NavLink
+            to="/dashboard"
+            end
             className={({ isActive }) => getNavLinkClass(isActive)}
           >
             <LayoutDashboard className="mr-3 h-5 w-5" />
@@ -311,53 +127,209 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
             Analytics
           </NavLink>
 
-
-          {/* Chats Dropdown */}
-          <MemoizedDropdown
-            name="chats"
-            label="Chats"
-            Icon={MessageSquare}
-            items={CHAT_ITEMS}
-            isOpen={openDropdown === "chats"}
-            toggle={toggleDropdown}
-            isActive={activeStates.chats}
-          />
-
-          {/* Campaigns Dropdown */}
-          <MemoizedDropdown
-            name="campaigns"
-            label="Campaigns"
-            Icon={Mail}
-            items={CAMPAIGN_ITEMS}
-            isOpen={openDropdown === "campaigns"}
-            toggle={toggleDropdown}
-            isActive={activeStates.campaigns}
-          />
-
-          {/* Customers Dropdown */}
-          <MemoizedDropdown
-            name="customers"
-            label="Customers"
-            Icon={Users}
-            items={CUSTOMER_ITEMS}
-            isOpen={openDropdown === "customers"}
-            toggle={toggleDropdown}
-            isActive={activeStates.customers}
-          />
-
-          {/* Services Dropdown */}
-          <MemoizedDropdown
-            name="services"
-            label="My Services"
-            Icon={FileText}
-            items={SERVICE_ITEMS}
-            isOpen={openDropdown === "services"}
-            toggle={toggleDropdown}
-            isActive={activeStates.services}
-          />
-
+          {/* Chats Menu */}
           <NavLink
-            to="/dashboard/tasks"
+            to="/dashboard/chats"
+            className={({ isActive }) => getNavLinkClass(isActive)}
+          >
+            <MessageCircle className="mr-3 h-5 w-5" />
+            Chats
+          </NavLink>
+
+          {/* Campaigns Menu with Sub-Menus */}
+          <div>
+            <button
+              onClick={() => toggleMenu("campaigns")}
+              className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
+                isMenuActive("/dashboard/campaigns")
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <div className="flex items-center">
+                <Megaphone className="mr-3 h-5 w-5" />
+                Campaigns
+              </div>
+              {expandedMenu === "campaigns" ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+            <div
+              ref={el => submenuRefs.current.campaigns = el}
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                expandedMenu === "campaigns"
+                  ? "opacity-100"
+                  : "opacity-0 max-h-0"
+              }`}
+              style={{
+                maxHeight: expandedMenu === "campaigns" 
+                  ? `${submenuHeights.campaigns}px` 
+                  : "0px"
+              }}
+            >
+              <div className="pl-8 space-y-1 mt-1">
+                <NavLink
+                  to="/dashboard/campaigns/meta"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <Facebook className="mr-3 h-4 w-4" />
+                  Meta
+                </NavLink>
+                <NavLink
+                  to="/dashboard/campaigns/google"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <Search className="mr-3 h-4 w-4" />
+                  Google
+                </NavLink>
+                <NavLink
+                  to="/dashboard/campaigns/whatsapp"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <MessageSquare className="mr-3 h-4 w-4" />
+                  WhatsApp
+                </NavLink>
+              </div>
+            </div>
+          </div>
+
+          {/* Customers Menu with Sub-Menus */}
+          <div>
+            <button
+              onClick={() => toggleMenu("customers")}
+              className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
+                isMenuActive("/dashboard/customers")
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <div className="flex items-center">
+                <Users className="mr-3 h-5 w-5" />
+                Customers
+              </div>
+              {expandedMenu === "customers" ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+            <div
+              ref={el => submenuRefs.current.customers = el}
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                expandedMenu === "customers"
+                  ? "opacity-100"
+                  : "opacity-0 max-h-0"
+              }`}
+              style={{
+                maxHeight: expandedMenu === "customers" 
+                  ? `${submenuHeights.customers}px` 
+                  : "0px"
+              }}
+            >
+              <div className="pl-8 space-y-1 mt-1">
+                <NavLink
+                  to="/dashboard/customers/basic"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <User className="mr-3 h-4 w-4" />
+                  Basic
+                </NavLink>
+                <NavLink
+                  to="/dashboard/customers/advance"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <UserCog className="mr-3 h-4 w-4" />
+                  Advance
+                </NavLink>
+                <NavLink
+                  to="/dashboard/customers/pro"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <Award className="mr-3 h-4 w-4" />
+                  Pro
+                </NavLink>
+              </div>
+            </div>
+          </div>
+
+          {/* MyServices Menu with Sub-Menus */}
+          <div>
+            <button
+              onClick={() => toggleMenu("myServices")}
+              className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
+                isMenuActive("/dashboard/myservices")
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+              }`}
+            >
+              <div className="flex items-center">
+                <ShoppingBag className="mr-3 h-5 w-5" />
+                MyServices
+              </div>
+              {expandedMenu === "myServices" ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+            <div
+              ref={el => submenuRefs.current.myServices = el}
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                expandedMenu === "myServices"
+                  ? "opacity-100"
+                  : "opacity-0 max-h-0"
+              }`}
+              style={{
+                maxHeight: expandedMenu === "myServices" 
+                  ? `${submenuHeights.myServices}px` 
+                  : "0px"
+              }}
+            >
+              <div className="pl-8 space-y-1 mt-1">
+                <NavLink
+                  to="/dashboard/myservices/google"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  {/* <Google className="mr-3 h-4 w-4" /> */}
+                  Google
+                </NavLink>
+                <NavLink
+                  to="/dashboard/myservices/meta"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <Facebook className="mr-3 h-4 w-4" />
+                  Meta
+                </NavLink>
+                <NavLink
+                  to="/dashboard/myservices/whatsapp"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <MessageSquare className="mr-3 h-4 w-4" />
+                  WhatsApp
+                </NavLink>
+                <NavLink
+                  to="/dashboard/myservices/web"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <Globe className="mr-3 h-4 w-4" />
+                  Web
+                </NavLink>
+                <NavLink
+                  to="/dashboard/myservices/app"
+                  className={({ isActive }) => getNavLinkClass(isActive)}
+                >
+                  <Smartphone className="mr-3 h-4 w-4" />
+                  App
+                </NavLink>
+              </div>
+            </div>
+          </div>
+
+          {/* Task/Meet Menu */}
+          <NavLink
+            to="/dashboard/taskmeet"
             className={({ isActive }) => getNavLinkClass(isActive)}
           >
             <Calendar className="mr-3 h-5 w-5" />

@@ -1,6 +1,4 @@
-import React from 'react'
-
-const Google = () => {
+const ServicesGoogle = () => {
   return (
     <div>
       <h1>My Services - Google Page</h1>
@@ -8,4 +6,4 @@ const Google = () => {
   )
 }
 
-export default Google;
+export default ServicesGoogle;

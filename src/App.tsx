@@ -1,8 +1,6 @@
 import React from "react";
 import {
   BrowserRouter as Router,
-
-  
   Routes,
   Route,
   Navigate,
@@ -18,9 +16,21 @@ import Dashboard from "./pages/Dashboard";
 // import LeadsManagement from "./pages/LeadsManagement";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
-
+import Meta from "./pages/Campaign/Meta";
+import Google from "./pages/Campaign/Google";
+import WhatsApp from "./pages/Campaign/WhatsApp";
+import Basic from "./pages/Customers/Basic";
+import Advance from "./pages/Customers/Advance";
 // Layout
 import DashboardLayout from "./components/layout/DashboardLayout";
+import Pro from "./pages/Customers/Pro";
+// Services
+import ServicesGoogle from "./pages/MyServices/Google";
+import ServicesMeta from "./pages/MyServices/Meta";
+import ServicesWhatsApp from "./pages/MyServices/WhatsApp";
+import Web from "./pages/MyServices/Web";
+import ServicesApp from "./pages/MyServices/App";
+import Meet from "./pages/Task/Meet";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -61,6 +71,25 @@ function App() {
             {/* <Route path="leads" element={<LeadsManagement />} /> */}
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="taskmeet" element={<Meet />} />
+            {/* Campaigns nested routes */}
+            <Route path="campaigns">
+              <Route path="meta" element={<Meta />} />
+              <Route path="google" element={<Google />} />
+              <Route path="whatsapp" element={<WhatsApp />} />
+            </Route>
+            <Route path="customers">
+              <Route path="basic" element={<Basic />} />
+              <Route path="advance" element={<Advance />} />
+              <Route path="pro" element={<Pro />} />
+            </Route>
+            <Route path="myservices">
+              <Route path="google" element={<ServicesGoogle />} />
+              <Route path="meta" element={<ServicesMeta />} />
+              <Route path="whatsapp" element={<ServicesWhatsApp />} />
+              <Route path="web" element={<Web />} />
+              <Route path="app" element={<ServicesApp />} />
+            </Route>
           </Route>
 
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

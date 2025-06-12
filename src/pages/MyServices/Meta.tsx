@@ -1,6 +1,5 @@
-import React from 'react'
 
-const Meta = () => {
+const ServicesMeta = () => {
   return (
     <div>
       <h1>My Services - Meta Page</h1>
@@ -8,4 +7,4 @@ const Meta = () => {
   )
 }
 
-export default Meta;
+export default ServicesMeta;

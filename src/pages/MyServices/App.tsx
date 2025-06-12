@@ -1,6 +1,5 @@
-import React from 'react'
 
-const App = () => {
+const ServicesApp = () => {
   return (
     <div>
         <h1>My Services - App Page</h1>
@@ -8,4 +7,4 @@ const App = () => {
   )
 }
 
-export default App;
+export default ServicesApp;

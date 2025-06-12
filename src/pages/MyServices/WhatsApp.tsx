@@ -1,6 +1,5 @@
-import React from 'react'
 
-const WhatsApp = () => {
+const ServicesWhatsApp = () => {
   return (
     <div>
       <h1>My Services - WhatsApp Page</h1>
@@ -8,4 +7,4 @@ const WhatsApp = () => {
   )
 }
 
-export default WhatsApp;
+export default ServicesWhatsApp;

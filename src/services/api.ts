@@ -8,7 +8,14 @@ import {
   getLeadsColByUser,
   updateLeadByUser,
 } from "../services/firebase";
-import { doc, setDoc, addDoc, getDocs } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  addDoc,
+  getDocs,
+  getDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { createLead } from "./firebase";
 
 const BASE_API_URL =
@@ -154,6 +161,36 @@ export const updateCustomerComment = async (
     }
   } catch (error) {
     console.error("Error updating customer comment:", error);
+    throw error;
+  }
+};
+
+interface CommentEntry {
+  user: string;
+  content: string;
+  timestamp: string;
+}
+
+export const appendCustomerComment = async (
+  leadId: string,
+  newComment: CommentEntry,
+  userPhone?: string,
+): Promise<void> => {
+  try {
+    const leadDocRef = userPhone
+      ? doc(db, `crm_users/${userPhone}/leads`, leadId)
+      : doc(getLeadsCol(), leadId);
+
+    const docSnap = await getDoc(leadDocRef);
+    const existingComments: CommentEntry[] = docSnap.exists()
+      ? docSnap.data().customerComments || []
+      : [];
+
+    const updatedComments = [...existingComments, newComment].slice(-30);
+
+    await updateDoc(leadDocRef, { customerComments: updatedComments });
+  } catch (error) {
+    console.error("Error appending customer comment:", error);
     throw error;
   }
 };

@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 
 const Dashboard: React.FC = () => {
-  // State variables
+  // State variables from both versions
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,6 +50,7 @@ const Dashboard: React.FC = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [userSwitchLoading, setUserSwitchLoading] = useState(false);
   const [viewingUserPhone, setViewingUserPhone] = useState("");
+  const [viewingUserDisplayName, setViewingUserDisplayName] = useState("");
   const [customKpis, setCustomKpis] = useState<CustomKpi[]>([]);
   const [showPopup, setShowPopup] = useState(false);
   const [importError, setImportError] = useState("");
@@ -65,10 +66,10 @@ const Dashboard: React.FC = () => {
       // Default cards
       const defaultKpis: KPI[] = [
         {
-          title: "Total Leads",
+          title: "Qualified Leads",
           value: list.length,
           icon: <Users size={24} />,
-          color: "primary",
+          color: "blue",
         },
         {
           title: "Meeting Done",
@@ -80,7 +81,7 @@ const Dashboard: React.FC = () => {
           title: "Deal Done",
           value: dealDone,
           icon: <Award size={24} />,
-          color: "success",
+          color: "green",
         },
       ];
 
@@ -148,7 +149,9 @@ const Dashboard: React.FC = () => {
         }
 
         const sanitizedPhone = user.phoneNumber.replace(/[^\d]/g, "");
+        const displayName = user.displayName || sanitizedPhone;
         setViewingUserPhone(sanitizedPhone);
+        setViewingUserDisplayName(displayName);
         const userDocRef = doc(db, "crm_users", sanitizedPhone);
         const docSnap = await getDoc(userDocRef);
 
@@ -196,7 +199,7 @@ const Dashboard: React.FC = () => {
     loadData();
   }, []);
 
-  // CSV Import functions
+  // CSV Import functions from second version
   const handleCSVImport = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -255,6 +258,7 @@ const Dashboard: React.FC = () => {
 
     return results.data.map(
       (row): Lead => ({
+        // id: `imported-${Date.now()}-${index}`,
         created_time: row.created_time || new Date().toISOString(),
         platform: row.platform || "",
         name: row.name || "",
@@ -265,7 +269,7 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  // Event handlers
+  // Event handlers from both versions
   const handleStatusUpdate = (leadId: string, newStatus: string) => {
     setLeads(
       leads.map((lead) =>
@@ -331,8 +335,16 @@ const Dashboard: React.FC = () => {
       setUserSwitchLoading(true);
       try {
         const userPhone = selectedOption.value;
+
+        // get current user's display name
+        const auth = getAuth();
+        const user = auth.currentUser;
+        const displayName = user?.displayName || "User";
+
         setSelectedUser(userPhone);
         setViewingUserPhone(userPhone);
+        setViewingUserDisplayName(displayName); // ✅ Set display name of switched user
+
         const userLeads = await fetchLeadsFromFirestore(userPhone);
         setLeads(userLeads);
       } catch (error) {
@@ -341,17 +353,20 @@ const Dashboard: React.FC = () => {
         setUserSwitchLoading(false);
       }
     } else {
-      // Reset to current user
+      // Reset to current signed-in user
       const auth = getAuth();
       const user = auth.currentUser;
+      const displayName = user?.displayName || "User";
+
       if (user?.phoneNumber) {
         const sanitizedPhone = user.phoneNumber.replace(/[^\d]/g, "");
         setViewingUserPhone(sanitizedPhone);
+        setViewingUserDisplayName(displayName); // ✅ Correct field here
       }
     }
   };
 
-  // UserDropdown component
+  // UserDropdown component from first version
   const UserDropdown = () => {
     type UserOption = {
       value: string;
@@ -367,22 +382,20 @@ const Dashboard: React.FC = () => {
         ...provided,
         minWidth: "240px",
         borderRadius: "0.375rem",
-        borderColor: "hsl(var(--border))",
-        "&:hover": { borderColor: "hsl(var(--ring))" },
+        borderColor: "#e5e7eb",
+        "&:hover": { borderColor: "#93c5fd" },
         boxShadow: "none",
-        backgroundColor: "hsl(var(--input))",
+        backgroundColor: "#f9fafb",
         minHeight: "42px",
       }),
       option: (provided, state) => ({
         ...provided,
         backgroundColor: state.isSelected
-          ? "hsl(var(--primary))"
+          ? "#3b82f6"
           : state.isFocused
-          ? "hsl(var(--accent))"
-          : "hsl(var(--background))",
-        color: state.isSelected
-          ? "hsl(var(--primary-foreground))"
-          : "hsl(var(--foreground))",
+          ? "#dbeafe"
+          : "white",
+        color: state.isSelected ? "white" : "#1f2937",
         padding: "10px 15px",
         fontSize: "0.875rem",
       }),
@@ -390,25 +403,24 @@ const Dashboard: React.FC = () => {
         ...provided,
         "input:focus": { boxShadow: "none" },
         fontSize: "0.875rem",
-        color: "hsl(var(--foreground))",
       }),
       placeholder: (provided) => ({
         ...provided,
-        color: "hsl(var(--muted-foreground))",
+        color: "#9ca3af",
         fontSize: "0.875rem",
       }),
       singleValue: (provided) => ({
         ...provided,
-        color: "hsl(var(--foreground))",
+        color: "#1f2937",
         fontSize: "0.875rem",
         fontWeight: 500,
       }),
       menu: (provided) => ({
         ...provided,
         borderRadius: "0.375rem",
-        backgroundColor: "hsl(var(--popover))",
-        boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-        zIndex: 10,
+        boxShadow:
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+        zIndex: 30,
       }),
       indicatorSeparator: () => ({ display: "none" }),
     };
@@ -443,24 +455,24 @@ const Dashboard: React.FC = () => {
               <components.DropdownIndicator {...props}>
                 {usersLoading ? (
                   <div className="px-2">
-                    <SyncLoader size={8} color="hsl(var(--primary))" />
+                    <SyncLoader size={8} color="#3b82f6" />
                   </div>
                 ) : (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
                 )}
               </components.DropdownIndicator>
             ),
             LoadingIndicator: () => (
               <div className="px-2">
-                <SyncLoader size={8} color="hsl(var(--primary))" />
+                <SyncLoader size={8} color="#3b82f6" />
               </div>
             ),
           }}
           styles={selectStyles}
         />
         {userSwitchLoading && (
-          <div className="absolute inset-0 bg-background/70 flex items-center justify-center rounded-md border border-border">
-            <SyncLoader size={8} color="hsl(var(--primary))" />
+          <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center rounded-md border border-gray-200">
+            <SyncLoader size={8} color="#3b82f6" />
           </div>
         )}
       </div>
@@ -470,16 +482,16 @@ const Dashboard: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <SyncLoader size={12} color="hsl(var(--primary))" />
+        <SyncLoader size={12} color="#3b82f6" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="mb-4 rounded border-destructive bg-destructive/10 px-4 py-3 flex items-start">
+      <div className="mb-4 rounded border-yellow-400 bg-yellow-50 px-4 py-3 flex items-start">
         <svg
-          className="h-5 w-5 flex-shrink-0 text-destructive"
+          className="h-5 w-5 flex-shrink-0 text-yellow-400"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
           fill="currentColor"
@@ -491,7 +503,7 @@ const Dashboard: React.FC = () => {
             clipRule="evenodd"
           />
         </svg>
-        <div className="ml-3 text-destructive">
+        <div className="ml-3 text-yellow-800">
           <p className="font-medium">Warning</p>
           <p className="mt-1 text-sm">⚠️ {warning}</p>
         </div>
@@ -515,8 +527,8 @@ const Dashboard: React.FC = () => {
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Recent Leads</h2>
-          <p className="text-sm text-muted-foreground mt-1">
+          <h2 className="text-xl font-semibold text-gray-800">Recent Leads</h2>
+          <p className="text-sm text-gray-500 mt-1">
             {leads.length} records found
           </p>
         </div>
@@ -524,7 +536,7 @@ const Dashboard: React.FC = () => {
           {isAdmin && <UserDropdown />}
           <button
             onClick={() => setShowPopup(true)}
-            className={`inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-ring transition-all duration-200 ${
+            className={`inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 ${
               userSwitchLoading ? "opacity-70 cursor-not-allowed" : ""
             }`}
           >
@@ -533,7 +545,7 @@ const Dashboard: React.FC = () => {
           <button
             onClick={handleExportCSV}
             disabled={userSwitchLoading}
-            className={`inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-success-foreground bg-success hover:bg-success/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-success transition-all duration-200 ${
+            className={`inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 ${
               userSwitchLoading ? "opacity-70 cursor-not-allowed" : ""
             }`}
           >
@@ -544,30 +556,30 @@ const Dashboard: React.FC = () => {
 
       {showPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md transition-all duration-300">
-          <div className="bg-card rounded-2xl shadow-2xl p-8 max-w-md w-full relative border border-border">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full relative border border-gray-200">
             <button
               onClick={() => setShowPopup(false)}
-              className="absolute top-3 right-3 text-muted-foreground hover:text-destructive text-3xl transition-colors"
+              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-3xl transition-colors"
             >
               &times;
             </button>
 
-            <h3 className="text-xl font-bold mb-6 text-foreground text-center">
+            <h3 className="text-xl font-bold mb-6 text-gray-800 text-center">
               📂 Import CSV File
             </h3>
 
             {importError && (
-              <div className="mb-4 rounded border border-destructive bg-destructive/10 px-4 py-2 text-destructive shadow text-sm">
+              <div className="mb-4 rounded border border-red-400 bg-red-100 px-4 py-2 text-red-700 shadow text-sm">
                 {importError}
               </div>
             )}
 
-            <ol className="list-decimal space-y-6 text-foreground text-sm pl-6">
+            <ol className="list-decimal space-y-6 text-gray-700 text-sm pl-6">
               <li>
                 <p className="mb-2 font-medium">Download the sample file:</p>
                 <button
                   onClick={handleDownloadSample}
-                  className="bg-success text-success-foreground text-sm px-4 py-2 rounded-md hover:bg-success/90 shadow transition"
+                  className="bg-green-600 text-white text-sm px-4 py-2 rounded-md hover:bg-green-700 shadow transition"
                 >
                   Download
                 </button>
@@ -582,7 +594,7 @@ const Dashboard: React.FC = () => {
 
               <li>
                 <p className="mb-2 font-medium">Import your updated file:</p>
-                <label className="inline-block bg-primary text-primary-foreground text-sm px-4 py-2 rounded-md cursor-pointer hover:bg-primary/90 shadow transition">
+                <label className="inline-block bg-blue-600 text-white text-sm px-4 py-2 rounded-md cursor-pointer hover:bg-blue-700 shadow transition">
                   Import
                   <input
                     type="file"
@@ -604,6 +616,7 @@ const Dashboard: React.FC = () => {
         onUpdateCustomerComment={handleUpdateCustomerComment}
         isLoading={userSwitchLoading}
         viewingUserPhone={viewingUserPhone}
+        viewingUserDisplayName={viewingUserDisplayName}
         customKpis={customKpis}
       />
     </div>

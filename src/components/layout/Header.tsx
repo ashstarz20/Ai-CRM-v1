@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Menu, Monitor, Bell, Sun, Moon, X } from "lucide-react";
+import { Menu, Sun, Moon, X } from "lucide-react";     // Monitor, Bell, add next to Sun and Moon //
 import { useAuth } from "../../context/AuthContext";
 import { useLocation } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
@@ -18,7 +18,7 @@ interface VideoLink {
 const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const { currentUser } = useAuth();
   const location = useLocation();
-  const [notificationsCount] = useState(3);
+  // const [notificationsCount] = useState(3);
   const [showVideoContainer, setShowVideoContainer] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const { isDarkMode, toggleTheme } = useTheme();
@@ -126,7 +126,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         </div>
 
         <div className="flex items-center space-x-4">
-          <div className="relative">
+          {/* <div className="relative">
             <button
               className={`p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 showVideoContainer
@@ -137,9 +137,9 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             >
               <Monitor size={20} />
             </button>
-          </div>
+          </div> */}
 
-          <div className="relative">
+          {/* <div className="relative">
             <button
               className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700"
               onClick={() => console.log("Show notifications")}
@@ -151,7 +151,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                 {notificationsCount}
               </span>
             )}
-          </div>
+          </div> */}
 
           <button
             className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700"

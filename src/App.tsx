@@ -8,12 +8,9 @@ import {
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-
-// Pages
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
 import Dashboard from "./pages/Dashboard";
-// import LeadsManagement from "./pages/LeadsManagement";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Meta from "./pages/Campaign/Meta";
@@ -21,10 +18,8 @@ import Google from "./pages/Campaign/Google";
 import WhatsApp from "./pages/Campaign/WhatsApp";
 import Basic from "./pages/Customers/Basic";
 import Advance from "./pages/Customers/Advance";
-// Layout
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Pro from "./pages/Customers/Pro";
-// Services
 import ServicesGoogle from "./pages/MyServices/Google";
 import ServicesMeta from "./pages/MyServices/Meta";
 import ServicesWhatsApp from "./pages/MyServices/WhatsApp";
@@ -32,13 +27,12 @@ import Web from "./pages/MyServices/Web";
 import ServicesApp from "./pages/MyServices/App";
 import Meet from "./pages/Task/Meet";
 
-// Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser, loading } = useAuth();
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-100">
+      <div className="h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -68,11 +62,9 @@ function App() {
             }
           >
             <Route index element={<Dashboard />} />
-            {/* <Route path="leads" element={<LeadsManagement />} /> */}
             <Route path="analytics" element={<Analytics />} />
             <Route path="settings" element={<Settings />} />
             <Route path="taskmeet" element={<Meet />} />
-            {/* Campaigns nested routes */}
             <Route path="campaigns">
               <Route path="meta" element={<Meta />} />
               <Route path="google" element={<Google />} />
@@ -106,6 +98,7 @@ function App() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
+        theme="colored"
       />
     </AuthProvider>
   );

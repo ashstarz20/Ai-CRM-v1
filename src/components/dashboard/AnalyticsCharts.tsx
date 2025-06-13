@@ -51,8 +51,8 @@ const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Status Distribution */}
-      <div className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-all duration-300">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-card text-foreground p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-border">
+        <h3 className="text-lg font-medium text-foreground mb-4">
           Lead Status Distribution
         </h3>
         <div className="h-80">
@@ -87,8 +87,8 @@ const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
       </div>
 
       {/* Platform Distribution */}
-      <div className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-all duration-300">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-card text-foreground p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-border">
+        <h3 className="text-lg font-medium text-foreground mb-4">
           Lead Source Distribution
         </h3>
         <div className="h-80">
@@ -106,7 +106,7 @@ const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
                 fill="#8884d8"
                 dataKey="value"
               >
-                {platformData.map((entry, index) => (
+                {platformData.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}
@@ -128,8 +128,8 @@ const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
       </div>
 
       {/* Leads by Day */}
-      <div className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-all duration-300">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-card text-foreground p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-border">
+        <h3 className="text-lg font-medium text-foreground mb-4">
           Leads Over Time
         </h3>
         <div className="h-80">
@@ -163,8 +163,8 @@ const AnalyticsCharts: React.FC<AnalyticsChartsProps> = ({
       </div>
 
       {/* Location Distribution */}
-      <div className="bg-white p-6 rounded-lg shadow-sm hover:shadow-md transition-all duration-300">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-card text-foreground p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-border">
+        <h3 className="text-lg font-medium text-foreground mb-4">
           Leads by Location
         </h3>
         <div className="h-80">

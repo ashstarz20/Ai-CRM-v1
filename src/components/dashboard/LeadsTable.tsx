@@ -100,62 +100,62 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   };
 
   const getPlatformInfo = (platform: string | undefined) => {
-    if (!platform) return { icon: null, color: "bg-gray-200 text-gray-800" };
+    if (!platform) return { icon: null, color: "bg-muted text-muted-foreground" };
 
     const platformLower = platform.toLowerCase();
 
     if (platformLower === "ig")
       return {
         icon: <FaInstagram className="w-3 h-3" />,
-        color: "bg-pink-100 text-pink-800",
+        color: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-200",
       };
 
     if (platformLower === "fb")
       return {
         icon: <FaFacebookF className="w-3 h-3" />,
-        color: "bg-blue-100 text-blue-800",
+        color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
       };
 
     if (platformLower === "wa")
       return {
         icon: <FaWhatsapp className="w-3 h-3" />,
-        color: "bg-green-100 text-green-800",
+        color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
       };
 
     if (platformLower.includes("facebook"))
       return {
         icon: <FaFacebookF className="w-3 h-3" />,
-        color: "bg-blue-100 text-blue-800",
+        color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
       };
 
     if (platformLower.includes("instagram"))
       return {
         icon: <FaInstagram className="w-3 h-3" />,
-        color: "bg-pink-100 text-pink-800",
+        color: "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-200",
       };
 
     if (platformLower.includes("google"))
       return {
         icon: <MessageSquare className="w-3 h-3" />,
-        color: "bg-red-100 text-red-800",
+        color: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200",
       };
 
     if (platformLower.includes("zalo"))
       return {
         icon: <MessagesSquare className="w-3 h-3" />,
-        color: "bg-blue-100 text-blue-800",
+        color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200",
       };
 
     if (platformLower.includes("tiktok"))
       return {
         icon: <MessageCircle className="w-3 h-3" />,
-        color: "bg-black text-white",
+        color: "bg-foreground text-background dark:bg-muted dark:text-foreground",
       };
 
     if (platformLower.includes("whatsapp"))
       return {
         icon: <FaWhatsapp className="w-3 h-3" />,
-        color: "bg-green-100 text-green-800",
+        color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200",
       };
 
     return {
@@ -164,7 +164,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
           {platform.substring(0, 2).toUpperCase()}
         </span>
       ),
-      color: "bg-gray-200 text-gray-800",
+      color: "bg-muted text-muted-foreground",
     };
   };
 
@@ -396,23 +396,25 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   };
 
   const getScoreColor = (score: number | null) => {
-    if (score === null) return "text-gray-500";
-    if (score < 50) return "text-red-600 font-bold";
+    if (score === null) return "text-muted-foreground";
+    if (score < 50) return "text-destructive font-bold";
     if (score >= 50 && score <= 70) return "text-amber-600 font-bold";
-    return "text-green-600 font-bold";
+    return "text-success font-bold";
   };
 
   const getStatusColor = (status: string | undefined) => {
-    if (!status) return "bg-gray-100 text-gray-800";
+    if (!status) return "bg-muted text-muted-foreground";
 
     switch (status.toLowerCase()) {
+      case "new lead":
+        return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200";
       case "meeting done":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200";
       case "deal done":
       case "deal closed":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-muted text-muted-foreground";
     }
   };
 
@@ -446,7 +448,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <SyncLoader color="#3b82f6" />
+        <SyncLoader color="hsl(var(--primary))" />
       </div>
     );
   }
@@ -454,13 +456,13 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   if (leads.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="bg-gray-100 border-2 border-dashed rounded-xl w-16 h-16 mx-auto flex items-center justify-center">
-          <X className="h-8 w-8 text-gray-400" />
+        <div className="bg-muted border-2 border-dashed rounded-xl w-16 h-16 mx-auto flex items-center justify-center">
+          <X className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">
+        <h3 className="mt-4 text-lg font-medium text-foreground">
           No leads found
         </h3>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-muted-foreground">
           There are no leads to display at the moment.
         </p>
       </div>
@@ -476,9 +478,9 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     value: string;
     statusColor?: string;
   }) => (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-200">
+    <div className="bg-card border border-border rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary">
       <div className="flex items-start">
-        <span className="font-medium text-gray-700 flex-shrink-0 w-32">
+        <span className="font-medium text-muted-foreground flex-shrink-0 w-32">
           {label}:
         </span>
         {statusColor ? (
@@ -488,7 +490,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
             {value}
           </span>
         ) : (
-          <span className="text-gray-900 font-medium flex-grow break-words">
+          <span className="text-foreground font-medium flex-grow break-words">
             {value}
           </span>
         )}
@@ -497,8 +499,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   );
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden relative">
-      <div className="p-4 sm:p-6 border-b border-gray-200">
+    <div className="bg-card rounded-lg shadow overflow-hidden relative">
+      <div className="p-4 sm:p-6 border-b border-border">
         <div className="sm:flex sm:items-center sm:justify-between">
           <div className="flex-1">
             <div className="relative">
@@ -507,9 +509,9 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                 placeholder="Search leads by name, number, or location..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-2 pl-10 text-sm shadow-sm placeholder-gray-400 focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                className="w-full rounded-xl border border-input bg-background px-4 py-2 pl-10 text-sm shadow-sm placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-2 focus:ring-ring transition"
               />
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   className="h-4 w-4"
@@ -532,7 +534,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="focus:ring-blue-500 focus:border-blue-500 block sm:text-sm border-gray-300 rounded-md"
+              className="focus:ring-ring focus:border-ring block sm:text-sm border-input rounded-md bg-background"
             >
               <option value="all">All Statuses</option>
               {statuses.map((status) => (
@@ -545,7 +547,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
             <select
               value={platformFilter}
               onChange={(e) => setPlatformFilter(e.target.value)}
-              className="focus:ring-blue-500 focus:border-blue-500 block sm:text-sm border-gray-300 rounded-md"
+              className="focus:ring-ring focus:border-ring block sm:text-sm border-input rounded-md bg-background"
             >
               <option value="all">All Platforms</option>
               {platforms.map((platform) => (
@@ -565,14 +567,13 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
           } overflow-hidden flex flex-col`}
         >
           <div className="overflow-auto flex-grow">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-border">
               {!isSidePanelOpen && (
-                <thead className="bg-gray-50 sticky top-0 z-10">
+                <thead className="bg-card sticky top-0 z-10">
                   <tr>
-                    {/* DATE COLUMN MOVED TO FIRST POSITION */}
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28 cursor-pointer"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-28 cursor-pointer"
                       onClick={() => handleSort("date")}
                     >
                       <div className="flex items-center">
@@ -585,13 +586,13 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                     >
                       Platform
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24 cursor-pointer"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24 cursor-pointer"
                       onClick={() => handleSort("name")}
                     >
                       <div className="flex items-center">
@@ -604,19 +605,19 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                     >
                       Contact
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                     >
                       Location
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer"
                       onClick={() => handleSort("score")}
                     >
                       <div className="flex items-center">
@@ -629,20 +630,20 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                     >
                       Status
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-32"
+                      className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider w-32"
                     >
                       Actions
                     </th>
                   </tr>
                 </thead>
               )}
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-background divide-y divide-border">
                 {paginatedItems.length > 0 ? (
                   paginatedItems.map((lead) => {
                     const score = extractScore(lead.comments || "");
@@ -660,8 +661,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                         key={lead.id}
                         className={`transition-colors duration-150 ${
                           isSidePanelOpen && selectedLead?.id === lead.id
-                            ? "bg-blue-100"
-                            : "hover:bg-gray-50"
+                            ? "bg-primary/10"
+                            : "hover:bg-accent"
                         }`}
                       >
                         {isSidePanelOpen ? (
@@ -677,16 +678,16 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                               </div>
                               <div className="min-w-0 flex-grow">
                                 <div className="flex justify-between items-baseline">
-                                  <span className="text-sm font-bold truncate">
+                                  <span className="text-sm font-bold truncate text-foreground">
                                     {lead.name || "N/A"}
                                   </span>
-                                  <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap ml-2">
                                     {lead.created_time
                                       ? formatDate(lead.created_time)
                                       : "N/A"}
                                   </span>
                                 </div>
-                                <div className="text-xs text-gray-500 truncate mt-1">
+                                <div className="text-xs text-muted-foreground truncate mt-1">
                                   {lead.whatsapp_number_ || "N/A"}
                                 </div>
                               </div>
@@ -694,8 +695,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                           </td>
                         ) : (
                           <>
-                            {/* DATE CELL MOVED TO FIRST POSITION */}
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-28">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-muted-foreground w-28">
                               {lead.created_time
                                 ? formatDate(lead.created_time)
                                 : "N/A"}
@@ -709,7 +709,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                               </div>
                             </td>
                             <td
-                              className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer w-24 truncate"
+                              className="px-4 py-3 whitespace-nowrap text-sm font-medium text-primary hover:text-primary/80 hover:underline cursor-pointer w-24 truncate"
                               onClick={() => openSidePanel(lead)}
                               title={lead.name || "N/A"}
                             >
@@ -719,15 +719,15 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                               <div className="flex items-center">
                                 <Phone
                                   size={16}
-                                  className="text-gray-400 mr-2"
+                                  className="text-muted-foreground mr-2"
                                 />
-                                <div className="text-sm text-gray-500 truncate max-w-[120px]">
+                                <div className="text-sm text-muted-foreground truncate max-w-[120px]">
                                   {lead.whatsapp_number_ || "N/A"}
                                 </div>
                               </div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="text-sm text-gray-500 truncate max-w-[140px]">
+                              <div className="text-sm text-muted-foreground truncate max-w-[140px]">
                                 {extractLocation(lead.comments || "")}
                               </div>
                             </td>
@@ -745,7 +745,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                 disabled={updatingStatus === lead.id}
                                 className={`px-2 py-1 text-xs leading-5 font-semibold rounded-md ${getStatusColor(
                                   lead.lead_status
-                                )} focus:outline-none focus:ring-1 focus:ring-blue-500 w-full ${
+                                )} focus:outline-none focus:ring-1 focus:ring-ring w-full ${
                                   updatingStatus === lead.id
                                     ? "cursor-not-allowed opacity-70"
                                     : ""
@@ -758,8 +758,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                 ))}
                               </select>
                               {updatingStatus === lead.id && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded">
-                                  <SyncLoader size={5} color="#3b82f6" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-muted rounded">
+                                  <SyncLoader size={5} color="hsl(var(--primary))" />
                                 </div>
                               )}
                             </td>
@@ -778,9 +778,9 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                 <div
                                   className={`cursor-pointer p-1 rounded-full ${
                                     lead.followUpDate || lead.followUpTime
-                                      ? "text-green-600 bg-green-100"
-                                      : "text-gray-700 bg-gray-100"
-                                  } hover:bg-gray-200 transition`}
+                                      ? "text-green-600 bg-green-100 dark:bg-green-900/30"
+                                      : "text-muted-foreground bg-muted"
+                                  } hover:bg-accent transition`}
                                   onClick={() => handleFollowUpClick(lead.id!)}
                                   title="Schedule Follow-up"
                                 >
@@ -790,29 +790,29 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
 
                               {followUpLeadId === lead.id && (
                                 <div
-                                  className="fixed inset-0 bg-black bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50"
+                                  className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50"
                                   onClick={() => setFollowUpLeadId(null)}
                                 >
                                   <div
-                                    className="bg-white border border-gray-300 rounded-md p-6 shadow-lg w-80 relative"
+                                    className="bg-card border border-border rounded-md p-6 shadow-lg w-80 relative"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <button
                                       onClick={() => setFollowUpLeadId(null)}
-                                      className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                                      className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
                                       aria-label="Close"
                                     >
                                       ✕
                                     </button>
                                     <div className="flex justify-center mb-4">
-                                      <h3 className="text-lg font-semibold">
+                                      <h3 className="text-lg font-semibold text-foreground">
                                         Follow Up
                                       </h3>
                                     </div>
                                     <div className="mb-4">
                                       <label
                                         htmlFor="followUpDate"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-muted-foreground"
                                       >
                                         Date
                                       </label>
@@ -823,13 +823,13 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                         onChange={(e) =>
                                           setFollowUpDate(e.target.value)
                                         }
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                        className="mt-1 block w-full rounded-md border-input bg-background shadow-sm focus:border-ring focus:ring-ring sm:text-sm"
                                       />
                                     </div>
                                     <div className="mb-6">
                                       <label
                                         htmlFor="followUpTime"
-                                        className="block text-sm font-medium text-gray-700"
+                                        className="block text-sm font-medium text-muted-foreground"
                                       >
                                         Time
                                       </label>
@@ -840,12 +840,12 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                         onChange={(e) =>
                                           setFollowUpTime(e.target.value)
                                         }
-                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                        className="mt-1 block w-full rounded-md border-input bg-background shadow-sm focus:border-ring focus:ring-ring sm:text-sm"
                                       />
                                     </div>
                                     <button
                                       onClick={() => handleSchedule(lead.id!)}
-                                      className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+                                      className="w-full bg-primary text-primary-foreground py-2 rounded-md hover:bg-primary/90 transition"
                                       disabled={!followUpDate || !followUpTime}
                                     >
                                       Schedule
@@ -863,7 +863,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                   <tr>
                     <td
                       colSpan={8}
-                      className="px-6 py-4 text-center text-sm text-gray-500"
+                      className="px-6 py-4 text-center text-sm text-muted-foreground"
                     >
                       No leads found matching your criteria
                     </td>
@@ -875,25 +875,25 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         </div>
 
         <div
-          className={`bg-white border-l border-gray-200 transition-all duration-300 ease-in-out overflow-hidden flex ${
+          className={`bg-card border-l border-border transition-all duration-300 ease-in-out overflow-hidden flex ${
             isSidePanelOpen ? "w-full md:w-4/6" : "w-0"
           }`}
         >
           {isSidePanelOpen && selectedLead && (
             <div className="flex flex-col w-full">
-              <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white">
+              <div className="p-4 border-b border-border flex justify-between items-center bg-card">
                 <div>
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
-                    <User size={20} className="text-blue-600" />
+                  <h2 className="text-xl font-semibold flex items-center gap-2 text-foreground">
+                    <User size={20} className="text-primary" />
                     Lead Details
                   </h2>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-muted-foreground mt-1">
                     {selectedLead.name || "Unnamed Lead"} • {selectedLead.email}
                   </p>
                 </div>
                 <button
                   onClick={closeSidePanel}
-                  className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                  className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-full hover:bg-muted"
                 >
                   <X size={24} />
                 </button>
@@ -919,10 +919,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                         return (
                           <div
                             key={key}
-                            className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-200"
+                            className="bg-card border border-border rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary"
                           >
                             <div className="flex items-start">
-                              <span className="font-medium text-gray-700 flex-shrink-0 w-32">
+                              <span className="font-medium text-muted-foreground flex-shrink-0 w-32">
                                 {formatLabel(key)}:
                               </span>
                               <div className="flex items-center">
@@ -931,7 +931,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                 >
                                   {platformInfo.icon}
                                 </div>
-                                <span className="text-gray-900 font-medium">
+                                <span className="text-foreground font-medium">
                                   {String(value) || "N/A"}
                                 </span>
                               </div>
@@ -985,9 +985,9 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     }
                   />
 
-                  <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-200">
+                  <div className="bg-card border border-border rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary">
                     <div className="flex items-start">
-                      <span className="font-medium text-gray-700 flex-shrink-0 w-32">
+                      <span className="font-medium text-muted-foreground flex-shrink-0 w-32">
                         Lead Score:
                       </span>
                       <span
@@ -1000,13 +1000,13 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </div>
                   </div>
 
-                  <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-200 md:col-span-2">
+                  <div className="bg-card border border-border rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary md:col-span-2">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-medium text-gray-700 flex items-center">
-                        <MessageSquare size={18} className="mr-2 text-gray-500" />
+                      <h3 className="font-medium text-muted-foreground flex items-center">
+                        <MessageSquare size={18} className="mr-2 text-muted-foreground" />
                         Comments Thread
                       </h3>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         {commentsHistory.length} comments
                       </span>
                     </div>
@@ -1019,39 +1019,39 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                             className="flex items-start gap-3 animate-fadeIn"
                           >
                             <div className="flex-shrink-0 mt-1">
-                              <div className="bg-gray-200 border-2 border-dashed rounded-xl w-8 h-8" />
+                              <div className="bg-muted border-2 border-dashed rounded-xl w-8 h-8" />
                             </div>
                             <div className="flex-1">
                               <div className="flex justify-between items-baseline">
-                                <span className="font-medium text-sm text-gray-900">
+                                <span className="font-medium text-sm text-foreground">
                                   {comment.user || "Unknown User"}
                                 </span>
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-muted-foreground">
                                   {new Date(comment.timestamp).toLocaleString()}
                                 </span>
                               </div>
-                              <div className="mt-1 bg-gray-50 rounded-lg p-3 text-sm">
-                                <p className="text-gray-700">{comment.content}</p>
+                              <div className="mt-1 bg-muted rounded-lg p-3 text-sm">
+                                <p className="text-foreground">{comment.content}</p>
                               </div>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className="text-center py-4 text-gray-500">
+                        <div className="text-center py-4 text-muted-foreground">
                           <MessageSquare size={24} className="mx-auto mb-2" />
                           <p>No comments yet</p>
                           <p className="text-xs mt-1">Be the first to comment</p>
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-gray-400 mt-1 text-right">
+                    <div className="text-xs text-muted-foreground mt-1 text-right">
                       {commentsHistory.length}/30 comments
                     </div>
                   </div>
 
-                  <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-blue-200 md:col-span-2">
+                  <div className="bg-card border border-border rounded-xl p-4 shadow-sm transition-all duration-200 hover:shadow-md hover:border-primary md:col-span-2">
                     <div className="flex items-start">
-                      <span className="font-medium text-gray-700 flex-shrink-0 w-32">
+                      <span className="font-medium text-muted-foreground flex-shrink-0 w-32">
                         Customer Comment:
                       </span>
                       {isEditingCustomerComment ? (
@@ -1060,7 +1060,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                             value={customerComment}
                             onChange={(e) => setCustomerComment(e.target.value)}
                             rows={4}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-input bg-background rounded-lg focus:outline-none focus:ring-2 focus:ring-ring"
                             autoFocus
                             placeholder="Add your comment here"
                           />
@@ -1072,13 +1072,13 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                   String(selectedLead.customerComment || "")
                                 );
                               }}
-                              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                              className="px-3 py-1 text-sm text-muted-foreground hover:text-foreground"
                             >
                               Cancel
                             </button>
                             <button
                               onClick={handleSaveCustomerComment}
-                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                              className="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
                             >
                               Save
                             </button>
@@ -1086,11 +1086,11 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                         </div>
                       ) : (
                         <div className="flex-grow group relative">
-                          <p className="text-gray-900 font-medium break-words">
+                          <p className="text-foreground font-medium break-words">
                             {customerComment || "No comments yet"}
                           </p>
                           <button
-                            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-gray-500 hover:text-blue-600"
+                            className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-muted-foreground hover:text-primary"
                             onClick={() => setIsEditingCustomerComment(true)}
                             title="Edit comment"
                           >
@@ -1108,18 +1108,18 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
       </div>
 
       {totalPages > 1 && (
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
+        <div className="bg-card px-4 py-3 flex items-center justify-between border-t border-border">
           <div className="flex-1 flex justify-between items-center">
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-muted-foreground">
               Showing{" "}
-              <span className="font-medium">
+              <span className="font-medium text-foreground">
                 {(currentPage - 1) * itemsPerPage + 1}
               </span>{" "}
               to{" "}
-              <span className="font-medium">
+              <span className="font-medium text-foreground">
                 {Math.min(currentPage * itemsPerPage, sortedLeads.length)}
               </span>{" "}
-              of <span className="font-medium">{sortedLeads.length}</span> leads
+              of <span className="font-medium text-foreground">{sortedLeads.length}</span> leads
             </p>
             <div className="flex space-x-2">
               <button
@@ -1127,8 +1127,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                 disabled={currentPage === 1}
                 className={`px-4 py-2 text-sm rounded-md ${
                   currentPage === 1
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-white text-blue-600 hover:bg-blue-50 border border-blue-600"
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-background text-primary hover:bg-accent border border-border"
                 }`}
               >
                 Previous
@@ -1140,8 +1140,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                 disabled={currentPage === totalPages}
                 className={`px-4 py-2 text-sm rounded-md ${
                   currentPage === totalPages
-                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"
                 }`}
               >
                 Next

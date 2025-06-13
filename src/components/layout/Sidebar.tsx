@@ -1,3 +1,4 @@
+// src\components\layout\Sidebar.tsx
 import React, { useCallback, useState, useRef, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
@@ -48,7 +49,6 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
     myServices: 0,
   });
 
-  // Measure submenu heights after initial render
   useEffect(() => {
     setSubmenuHeights({
       campaigns: submenuRefs.current.campaigns?.scrollHeight || 0,
@@ -69,8 +69,8 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
     (isActive: boolean) =>
       `group flex items-center px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
         isActive
-          ? "bg-blue-50 text-blue-700"
-          : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          ? "bg-primary/10 text-primary"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`,
     []
   );
@@ -83,23 +83,23 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
     location.pathname.startsWith(`/dashboard${path}`);
 
   return (
-    <div className="h-full flex flex-col bg-white border-r border-gray-200">
+    <div className="h-full flex flex-col bg-background border-r border-border">
       {/* Header */}
-      <div className="flex items-center justify-between h-16 flex-shrink-0 px-4 bg-white border-b border-gray-200">
+      <div className="flex items-center justify-between h-16 flex-shrink-0 px-4 bg-background border-b border-border">
         <div className="flex items-center">
           <img
             src="/logo.png"
             alt="Logo"
             className="w-8 h-8 rounded-full animate-pulse [animation-duration:5s]"
           />
-          <span className="ml-2 text-xl font-semibold text-gray-900">
+          <span className="ml-2 text-xl font-semibold text-foreground">
             <strong>STARZ Ai CRM</strong>
           </span>
         </div>
         {closeSidebar && (
           <button
             onClick={closeSidebar}
-            className="lg:hidden rounded-md text-gray-500 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="lg:hidden rounded-md text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="Close sidebar"
           >
             <X size={24} />
@@ -142,8 +142,8 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
               onClick={() => toggleMenu("campaigns")}
               className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
                 isMenuActive("/dashboard/campaigns")
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               <div className="flex items-center">
@@ -201,8 +201,8 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
               onClick={() => toggleMenu("customers")}
               className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
                 isMenuActive("/dashboard/customers")
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               <div className="flex items-center">
@@ -260,8 +260,8 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
               onClick={() => toggleMenu("myServices")}
               className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
                 isMenuActive("/dashboard/myservices")
-                  ? "bg-blue-50 text-blue-700"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               <div className="flex items-center">
@@ -292,7 +292,6 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
                   to="/dashboard/myservices/google"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  {/* <Google className="mr-3 h-4 w-4" /> */}
                   Google
                 </NavLink>
                 <NavLink
@@ -338,7 +337,7 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 px-3 py-4 flex-shrink-0">
+        <div className="border-t border-border px-3 py-4 flex-shrink-0">
           <NavLink
             to="/dashboard/settings"
             className={({ isActive }) => getNavLinkClass(isActive)}
@@ -347,14 +346,14 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
             Settings
           </NavLink>
 
-          <div className="mt-4 text-sm text-gray-400">Beta Version 1.0.0</div>
-          <div className="text-xs text-gray-500 mt-1">
+          <div className="mt-4 text-sm text-muted-foreground">Beta Version 1.0.0</div>
+          <div className="text-xs text-muted-foreground mt-1">
             (There might be few issues, kindly ignore.)
           </div>
 
           <button
             onClick={handleSignOut}
-            className="mt-3 w-full flex items-center px-3 py-3 text-sm font-medium text-red-600 hover:text-red-700 rounded-md hover:bg-red-50 transition-all duration-200"
+            className="mt-3 w-full flex items-center px-3 py-3 text-sm font-medium text-destructive hover:text-destructive/80 rounded-md hover:bg-destructive/10 transition-all duration-200"
           >
             <LogOut className="mr-3 h-5 w-5" />
             Sign Out

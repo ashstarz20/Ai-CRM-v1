@@ -29,12 +29,10 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   const userName = currentUser?.displayName || "User";
   const phoneNumber = currentUser?.phoneNumber || "";
 
-  // Toggle video container
   const toggleVideoContainer = () => {
     setShowVideoContainer(!showVideoContainer);
   };
 
-  // Close container when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -51,7 +49,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     };
   }, []);
 
-  // Get current page title from URL
   const getPageInfo = () => {
     const path = location.pathname.split("/").pop();
     switch (path) {
@@ -78,7 +75,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     }
   };
 
-  // YouTube video links data
   const videoLinks: VideoLink[] = [
     {
       id: 1,
@@ -111,7 +107,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   return (
     <header className="flex-shrink-0 h-auto py-2 bg-white dark:bg-gray-800 shadow relative">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4">
-        {/* Left: Sidebar Toggle (Mobile Only) */}
         <div className="flex items-center lg:hidden mb-2 sm:mb-0">
           <button
             onClick={toggleSidebar}
@@ -121,7 +116,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           </button>
         </div>
 
-        {/* Middle: Page Title and Subtitle */}
         <div className="mb-2 sm:mb-0">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
             {pageInfo.title}
@@ -131,9 +125,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
           </p>
         </div>
 
-        {/* Right: Icons and User Info */}
         <div className="flex items-center space-x-4">
-          {/* Monitor Icon - Video Container Toggle */}
           <div className="relative">
             <button
               className={`p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -147,7 +139,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             </button>
           </div>
 
-          {/* Notification Bell with Badge */}
           <div className="relative">
             <button
               className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700"
@@ -162,7 +153,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             )}
           </div>
 
-          {/* Theme Toggle */}
           <button
             className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700"
             onClick={toggleTheme}
@@ -171,7 +161,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
 
-          {/* User Info */}
           <div className="flex items-center space-x-2">
             <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded-full text-white font-medium">
               {userInitial}
@@ -188,7 +177,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         </div>
       </div>
 
-      {/* YouTube Videos Container */}
       {showVideoContainer && (
         <div
           ref={videoContainerRef}

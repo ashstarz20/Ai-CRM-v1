@@ -76,11 +76,11 @@ function App() {
               <Route path="pro" element={<Pro />} />
             </Route>
             <Route path="myservices">
-              <Route path="google" element={<ServicesGoogle />} />
-              <Route path="meta" element={<ServicesMeta />} />
-              <Route path="whatsapp" element={<ServicesWhatsApp />} />
-              <Route path="web" element={<Web />} />
-              <Route path="app" element={<ServicesApp />} />
+              <Route path="sgoogle" element={<ServicesGoogle />} />
+              <Route path="smeta" element={<ServicesMeta />} />
+              <Route path="swhatsapp" element={<ServicesWhatsApp />} />
+              <Route path="sweb" element={<Web />} />
+              <Route path="sapp" element={<ServicesApp />} />
             </Route>
           </Route>
 

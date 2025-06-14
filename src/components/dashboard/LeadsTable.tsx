@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { format, parseISO, parse, isValid } from "date-fns";
 import { Lead } from "../../types";
-import { CustomKpi } from "../../types/types";
+import { CustomKpi, CustomField } from "../../types/types";
 import {
   Phone,
   X,
@@ -12,6 +12,7 @@ import {
   Award,
   ChevronDown,
   Calendar,
+  Tag, 
 } from "lucide-react";
 import {
   updateLeadStatus,
@@ -31,6 +32,7 @@ interface LeadsTableProps {
   viewingUserPhone: string;
   viewingUserDisplayName: string;
   customKpis: CustomKpi[];
+  customFields?: CustomField[];
 }
 
 const LeadsTable: React.FC<LeadsTableProps> = ({
@@ -42,6 +44,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   viewingUserPhone,
   viewingUserDisplayName,
   customKpis,
+  customFields = [],
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -699,6 +702,25 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     );
   }
 
+  function formatCustomFieldValue(value: unknown, type: string): unknown {
+    if (value === undefined || value === null) return "N/A";
+    switch (type) {
+      case "date":
+      case "datetime":
+        if (typeof value === "string" && value) {
+          const date = parseLeadDate(value);
+          return date ? format(date, "MMM dd, yyyy hh:mm a") : value;
+        }
+        return value;
+      case "boolean":
+        return value ? "Yes" : "No";
+      case "number":
+        return typeof value === "number" ? value : Number(value) || "N/A";
+      case "string":
+      default:
+        return String(value);
+    }
+  }
   return (
     <div className="bg-card rounded-lg shadow overflow-hidden relative">
       {/* Status update modal - UPDATED */}
@@ -1222,6 +1244,35 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       />
                     </div>
 
+
+                    {customFields && customFields.length > 0 && (
+                      <CollapsibleSection
+                        title="Custom Fields"
+                        icon={<Tag className="text-purple-500" size={16} />}
+                        defaultOpen={false}
+                      >
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          {customFields.map((field) => (
+                            <div key={field.id} className="flex">
+                              <div className="w-32 flex-shrink-0 text-muted-foreground truncate">
+                                {field.name}
+                              </div>
+                              <div className="font-medium text-foreground truncate">
+                                {String(
+                                  formatCustomFieldValue(
+                                    (selectedLead as Record<string, unknown>)?.[
+                                      field.name
+                                    ],
+                                    field.type
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CollapsibleSection>
+                    )}
+
                     <CollapsibleSection
                       title="Contact Preview"
                       icon={<User className="text-primary" size={16} />}
@@ -1250,38 +1301,38 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       defaultOpen={false}
                     >
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 text-sm">
-                      {(() => {
-                        const comment = selectedLead.comments;
-                        if (!comment) return null;
-                        const lines = comment
-                          .split("\n")
-                          .filter((line) => line.trim());
-                        return lines.map((line, idx) => {
-                          const sepIndex = line.indexOf(": ");
-                          let label: string, value: string;
-                          if (sepIndex !== -1) {
-                            label = line.substring(0, sepIndex).trim();
-                            value = line.substring(sepIndex + 2).trim();
-                          } else {
-                            label = line;
-                            value = "";
-                          }
-                          return (
-                            <div
-                              key={idx}
-                              className="flex items-center p-2 hover:bg-gray-100 transition duration-200"
-                            >
-                              <div className="w-32 flex-shrink-0 text-gray-600 font-semibold">
-                                {label}
+                        {(() => {
+                          const comment = selectedLead.comments;
+                          if (!comment) return null;
+                          const lines = comment
+                            .split("\n")
+                            .filter((line) => line.trim());
+                          return lines.map((line, idx) => {
+                            const sepIndex = line.indexOf(": ");
+                            let label: string, value: string;
+                            if (sepIndex !== -1) {
+                              label = line.substring(0, sepIndex).trim();
+                              value = line.substring(sepIndex + 2).trim();
+                            } else {
+                              label = line;
+                              value = "";
+                            }
+                            return (
+                              <div
+                                key={idx}
+                                className="flex items-center p-2 hover:bg-gray-100 transition duration-200"
+                              >
+                                <div className="w-32 flex-shrink-0 text-gray-600 font-semibold">
+                                  {label}
+                                </div>
+                                <div className="font-medium truncate text-gray-800">
+                                  {value || "N/A"}
+                                </div>
                               </div>
-                              <div className="font-medium truncate text-gray-800">
-                                {value || "N/A"}
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
+                            );
+                          });
+                        })()}
+                      </div>
                     </CollapsibleSection>
                   </div>
                 )}
@@ -1496,3 +1547,21 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
 };
 
 export default LeadsTable;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

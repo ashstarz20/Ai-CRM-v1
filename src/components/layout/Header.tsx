@@ -49,31 +49,122 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     };
   }, []);
 
+  // const getPageInfo = () => {
+  //   const path = location.pathname.split("/").pop();
+  //   switch (path) {
+  //     case "dashboard":
+  //       return {
+  //         title: "Leads",
+  //         subtitle: "Welcome to your leads management dashboard",
+  //       };
+  //     case "analytics":
+  //       return {
+  //         title: "Analytics",
+  //         subtitle: "Key insights from your lead data",
+  //       };
+  //     case "settings":
+  //       return {
+  //         title: "Settings",
+  //         subtitle: "Manage your account settings and preferences",
+  //       };
+  //     default:
+  //       return {
+  //         title: "Dashboard",
+  //         subtitle: "Welcome to your leads management dashboard",
+  //       };
+  //   }
+  // };
+
+
   const getPageInfo = () => {
-    const path = location.pathname.split("/").pop();
+    const path = location.pathname.split("/").pop()?.toLowerCase();
     switch (path) {
-      case "dashboard":
-        return {
-          title: "Leads",
-          subtitle: "Welcome to your leads management dashboard",
-        };
-      case "analytics":
-        return {
-          title: "Analytics",
-          subtitle: "Key insights from your lead data",
-        };
-      case "settings":
-        return {
-          title: "Settings",
-          subtitle: "Manage your account settings and preferences",
-        };
-      default:
-        return {
-          title: "Dashboard",
-          subtitle: "Welcome to your leads management dashboard",
-        };
+        case "dashboard":
+            return {
+                title: "Leads",
+                subtitle: "Welcome to your leads management dashboard",
+            };
+        case "analytics":
+            return {
+                title: "Analytics",
+                subtitle: "Key insights from your lead data",
+            };
+        case "settings":
+            return {
+                title: "Settings",
+                subtitle: "Manage your account settings and preferences",
+            };
+        // Campaigns
+        case "meta":
+            return {
+                title: "Meta",
+                subtitle: "Manage your Meta advertising campaigns",
+            };
+        case "google":
+            return {
+                title: "Google",
+                subtitle: "Manage your Google advertising campaigns",
+            };
+        case "whatsapp":
+            return {
+                title: "WhatsApp",
+                subtitle: "Manage your WhatsApp messaging campaigns",
+            };
+        // Customers
+        case "basic":
+            return {
+                title: "Basic",
+                subtitle: "Manage your basic customer accounts",
+            };
+        case "advance":
+            return {
+                title: "Advance",
+                subtitle: "Manage advanced customer relationships",
+            };
+        case "pro":
+            return {
+                title: "Pro",
+                subtitle: "Manage premium customer accounts",
+            };
+        // MyServices
+        case "sgoogle":
+            return {
+                title: "Google",
+                subtitle: "Manage your Google service integrations",
+            };
+        case "smeta":
+            return {
+                title: "Meta",
+                subtitle: "Manage your Meta platform services",
+            };
+        case "swhatsapp":
+            return {
+                title: "WhatsApp",
+                subtitle: "Manage your WhatsApp business services",
+            };
+        case "sweb":
+            return {
+                title: "Web",
+                subtitle: "Manage your website integrations",
+            };
+        case "sapp":
+            return {
+                title: "App",
+                subtitle: "Manage your mobile application services",
+            };
+        // Tasks & Meetings
+        case "taskmeet":
+            return {
+                title: "Task/Meet",
+                subtitle: "Manage your tasks and meetings",
+            };
+        default:
+            return {
+                title: "Dashboard",
+                subtitle: "Welcome to your leads management dashboard",
+            };
     }
-  };
+};
 
   const videoLinks: VideoLink[] = [
     {

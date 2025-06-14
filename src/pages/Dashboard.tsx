@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, ChangeEvent } from "react";
 import KPICard from "../components/dashboard/KPICard";
 import LeadsTable from "../components/dashboard/LeadsTable";
-import { Lead, CustomKpi } from "../types/types";
+import { Lead, CustomKpi, CustomField } from "../types/types";
 import { KPI } from "../types";
 import {
   syncLeadsFromSheets,
@@ -31,9 +31,12 @@ import {
   FileText,
   MapPin,
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { fetchCustomFields } from "../services/customFields";
 
 const Dashboard: React.FC = () => {
   // State variables from both versions
+  const { currentUser } = useAuth();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,6 +57,25 @@ const Dashboard: React.FC = () => {
   const [customKpis, setCustomKpis] = useState<CustomKpi[]>([]);
   const [showPopup, setShowPopup] = useState(false);
   const [importError, setImportError] = useState("");
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+
+  // Fetch custom fields when component loads
+  useEffect(() => {
+    const loadCustomFields = async () => {
+      if (currentUser?.phoneNumber) {
+        try {
+          const sanitizedPhone = currentUser.phoneNumber.replace(/[^\d]/g, "");
+          const fields = await fetchCustomFields(sanitizedPhone);
+          setCustomFields(fields);
+        } catch (error) {
+          console.error("Failed to load custom fields", error);
+        }
+      }
+    };
+    loadCustomFields();
+  }, [currentUser]);
+
+
 
   // Combined KPI computation
   const computeKPIs = useCallback(
@@ -618,6 +640,7 @@ const Dashboard: React.FC = () => {
         viewingUserPhone={viewingUserPhone}
         viewingUserDisplayName={viewingUserDisplayName}
         customKpis={customKpis}
+        customFields={customFields}
       />
     </div>
   );

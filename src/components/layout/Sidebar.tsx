@@ -1,29 +1,30 @@
-// src\components\layout\Sidebar.tsx
-import React, { useCallback,  useEffect } from "react"; // useState, useRef(Paste the UseState and UseRef next to the UseCallback)
-import { NavLink } from "react-router-dom";         // useLocation (paste the UseLocation next to the Navlink import)
+import React, { useCallback, useState, useRef, useEffect } from "react";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   BarChart2,
-  // MessageCircle,
-  // Megaphone,
-  // Users,
-  // ShoppingBag,
-  // Calendar,
+  MessageCircle,
+  Megaphone,
+  Users,
+  ShoppingBag,
+  Calendar,
   Settings,
   X,
   LogOut,
-  // ChevronDown,
-  // ChevronUp,
-  // Facebook,
+  ChevronDown,
+  ChevronUp,
+  Facebook,
   // Search,
-  // MessageSquare,
-  // User,
-  // UserCog,
-  // Award,
-  // Globe,
-  // Smartphone,
+  MessageSquare,
+  User,
+  UserCog,
+  Award,
+  Globe,
+  Smartphone,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { FcGoogle } from "react-icons/fc"; // Google icon
+// import { FaGoogle } from "react-icons/fa"; // Alternative Google icon
 
 interface SidebarProps {
   closeSidebar?: () => void;
@@ -31,30 +32,30 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
   const { signOut } = useAuth();
-  // const location = useLocation();
-  // const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
-  // const submenuRefs = useRef<{
-  //   campaigns: HTMLDivElement | null;
-  //   customers: HTMLDivElement | null;
-  //   myServices: HTMLDivElement | null;
-  // }>({
-  //   campaigns: null,
-  //   customers: null,
-  //   myServices: null,
-  // });
+  const location = useLocation();
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const submenuRefs = useRef<{
+    campaigns: HTMLDivElement | null;
+    customers: HTMLDivElement | null;
+    myServices: HTMLDivElement | null;
+  }>({
+    campaigns: null,
+    customers: null,
+    myServices: null,
+  });
   
-  // const [submenuHeights, setSubmenuHeights] = useState({
-  //   campaigns: 0,
-  //   customers: 0,
-  //   myServices: 0,
-  // });
+  const [submenuHeights, setSubmenuHeights] = useState({
+    campaigns: 0,
+    customers: 0,
+    myServices: 0,
+  });
 
   useEffect(() => {
-    // setSubmenuHeights({
-    //   campaigns: submenuRefs.current.campaigns?.scrollHeight || 0,
-    //   customers: submenuRefs.current.customers?.scrollHeight || 0,
-    //   myServices: submenuRefs.current.myServices?.scrollHeight || 0,
-    // });
+    setSubmenuHeights({
+      campaigns: submenuRefs.current.campaigns?.scrollHeight || 0,
+      customers: submenuRefs.current.customers?.scrollHeight || 0,
+      myServices: submenuRefs.current.myServices?.scrollHeight || 0,
+    });
   }, []);
 
   const handleSignOut = useCallback(async () => {
@@ -75,12 +76,12 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
     []
   );
 
-  // const toggleMenu = (menu: string) => {
-  //   setExpandedMenu(prev => prev === menu ? null : menu);
-  // };
+  const toggleMenu = (menu: string) => {
+    setExpandedMenu(prev => prev === menu ? null : menu);
+  };
 
-  // const isMenuActive = (path: string) => 
-  //   location.pathname.startsWith(`/dashboard${path}`);
+  const isMenuActive = (path: string) => 
+    location.pathname.startsWith(`/dashboard${path}`);
 
   return (
     <div className="h-full flex flex-col bg-background border-r border-border">
@@ -128,16 +129,16 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
           </NavLink>
 
           {/* Chats Menu */}
-          {/* <NavLink
+          <NavLink
             to="/dashboard/chats"
             className={({ isActive }) => getNavLinkClass(isActive)}
           >
             <MessageCircle className="mr-3 h-5 w-5" />
             Chats
-          </NavLink> */}
+          </NavLink>
 
           {/* Campaigns Menu with Sub-Menus */}
-          {/* <div>
+          <div>
             <button
               onClick={() => toggleMenu("campaigns")}
               className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
@@ -174,29 +175,29 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
                   to="/dashboard/campaigns/meta"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  <Facebook className="mr-3 h-4 w-4" />
+                  <Facebook className="mr-3 h-4 w-4 text-blue-600" />
                   Meta
                 </NavLink>
                 <NavLink
                   to="/dashboard/campaigns/google"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  <Search className="mr-3 h-4 w-4" />
+                  <FcGoogle className="mr-3 h-4 w-4" /> {/* Google icon */}
                   Google
                 </NavLink>
                 <NavLink
                   to="/dashboard/campaigns/whatsapp"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  <MessageSquare className="mr-3 h-4 w-4" />
+                  <MessageSquare className="mr-3 h-4 w-4 text-green-500" />
                   WhatsApp
                 </NavLink>
               </div>
             </div>
-          </div> */}
+          </div>
 
           {/* Customers Menu with Sub-Menus */}
-          {/* <div>
+          <div>
             <button
               onClick={() => toggleMenu("customers")}
               className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
@@ -247,15 +248,15 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
                   to="/dashboard/customers/pro"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  <Award className="mr-3 h-4 w-4" />
+                  <Award className="mr-3 h-4 w-4 text-yellow-500" />
                   Pro
                 </NavLink>
               </div>
             </div>
-          </div> */}
+          </div>
 
           {/* MyServices Menu with Sub-Menus */}
-          {/* <div>
+          <div>
             <button
               onClick={() => toggleMenu("myServices")}
               className={`group flex items-center justify-between w-full px-3 py-3 text-sm font-medium rounded-md transition-all duration-200 ${
@@ -289,51 +290,52 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
             >
               <div className="pl-8 space-y-1 mt-1">
                 <NavLink
-                  to="/dashboard/myservices/google"
+                  to="/dashboard/myservices/sgoogle"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
+                  <FcGoogle className="mr-3 h-4 w-4" /> {/* Google icon */}
                   Google
                 </NavLink>
                 <NavLink
-                  to="/dashboard/myservices/meta"
+                  to="/dashboard/myservices/smeta"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  <Facebook className="mr-3 h-4 w-4" />
+                  <Facebook className="mr-3 h-4 w-4 text-blue-600" />
                   Meta
                 </NavLink>
                 <NavLink
-                  to="/dashboard/myservices/whatsapp"
+                  to="/dashboard/myservices/swhatsapp"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  <MessageSquare className="mr-3 h-4 w-4" />
+                  <MessageSquare className="mr-3 h-4 w-4 text-green-500" />
                   WhatsApp
                 </NavLink>
                 <NavLink
-                  to="/dashboard/myservices/web"
+                  to="/dashboard/myservices/sweb"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  <Globe className="mr-3 h-4 w-4" />
+                  <Globe className="mr-3 h-4 w-4 text-blue-500" />
                   Web
                 </NavLink>
                 <NavLink
-                  to="/dashboard/myservices/app"
+                  to="/dashboard/myservices/sapp"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
-                  <Smartphone className="mr-3 h-4 w-4" />
+                  <Smartphone className="mr-3 h-4 w-4 text-purple-500" />
                   App
                 </NavLink>
               </div>
             </div>
-          </div> */}
+          </div>
 
           {/* Task/Meet Menu */}
-          {/* <NavLink
+          <NavLink
             to="/dashboard/taskmeet"
             className={({ isActive }) => getNavLinkClass(isActive)}
           >
             <Calendar className="mr-3 h-5 w-5" />
             Task/Meet
-          </NavLink> */}
+          </NavLink>
         </nav>
 
         {/* Footer */}

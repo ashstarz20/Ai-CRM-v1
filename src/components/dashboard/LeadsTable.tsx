@@ -12,7 +12,9 @@ import {
   Award,
   ChevronDown,
   Calendar,
-  Tag, 
+  Tag,
+  Check,
+  Edit,
 } from "lucide-react";
 import {
   updateLeadStatus,
@@ -22,6 +24,7 @@ import {
 import { SyncLoader } from "react-spinners";
 import { FaBell, FaWhatsapp, FaFacebookF, FaInstagram } from "react-icons/fa";
 import { CollapsibleQualifierSection } from "../../../src/components/collapsiblesection";
+import { updateLeadCustomField } from "../../services/api";
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -33,6 +36,7 @@ interface LeadsTableProps {
   viewingUserDisplayName: string;
   customKpis: CustomKpi[];
   customFields?: CustomField[];
+  onUpdateCustomField: (leadId: string, fieldName: string, newValue: unknown) => void;
 }
 
 const LeadsTable: React.FC<LeadsTableProps> = ({
@@ -45,6 +49,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   viewingUserDisplayName,
   customKpis,
   customFields = [],
+  onUpdateCustomField,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -60,17 +65,32 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   const [activeTab, setActiveTab] = useState<
     "Overview" | "Contact" | "Qualifiers" | "Comments"
   >("Overview");
-  const [commentsHistory, setCommentsHistory] = useState<CommentHistoryItem[]>(
-    []
-  );
-
-  // Status update modal state
+  const [commentsHistory, setCommentsHistory] = useState<CommentHistoryItem[]>([]);
   const [statusUpdateModalOpen, setStatusUpdateModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
-  // const [statusUpdateComment, setStatusUpdateComment] = useState("");
-  const [leadForStatusUpdate, setLeadForStatusUpdate] = useState<string | null>(
-    null
-  );
+  const [leadForStatusUpdate, setLeadForStatusUpdate] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    customFields: false,
+    contactPreview: false,
+    qualifiersPreview: false,
+    customerType: true, // Keep customer type section open by default
+  });
+
+  // Per-lead customer type state
+  const [customerTypes, setCustomerTypes] = useState<Record<string, string>>(() => {
+    // Try to load from localStorage for persistence
+    try {
+      const stored = localStorage.getItem("leadCustomerTypes");
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    // Persist customerTypes to localStorage
+    localStorage.setItem("leadCustomerTypes", JSON.stringify(customerTypes));
+  }, [customerTypes]);
 
   interface CommentHistoryItem {
     user: string;
@@ -79,6 +99,146 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     timestamp: string;
   }
 
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  // Handle customer type selection for a specific lead
+  const handleCustomerTypeChange = (leadId: string, type: string) => {
+    setCustomerTypes(prev => ({
+      ...prev,
+      [leadId]: type,
+    }));
+  };
+
+  const handleSaveCustomField = async (
+    leadId: string,
+    fieldName: string,
+    newValue: unknown
+  ) => {
+    if (!selectedLead) return;
+
+    try {
+      await updateLeadCustomField(
+        leadId,
+        fieldName,
+        newValue,
+        viewingUserPhone
+      );
+
+      onUpdateCustomField(leadId, fieldName, newValue);
+
+      setSelectedLead({
+        ...selectedLead,
+        [fieldName]: newValue as string | number | boolean | undefined,
+      });
+    } catch (error) {
+      console.error("Error updating custom field:", error);
+      alert("Failed to update field. Please try again.");
+    }
+  };
+
+  const EditableField = ({
+    leadId,
+    field,
+    value,
+  }: {
+    leadId: string;
+    field: CustomField;
+    value: unknown;
+  }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editValue, setEditValue] = useState(value);
+
+    useEffect(() => {
+      setEditValue(value);
+    }, [value]);
+
+    const handleSave = () => {
+      handleSaveCustomField(leadId, field.name, editValue);
+      setIsEditing(false);
+    };
+
+    const handleCancel = () => {
+      setEditValue(value);
+      setIsEditing(false);
+    };
+
+    return (
+      <div className="flex items-center group">
+        <div className="w-32 flex-shrink-0 text-muted-foreground truncate">
+          {field.name}
+        </div>
+        <div className="font-medium text-foreground truncate flex-1">
+          {isEditing ? (
+            <div className="flex items-center">
+              {field.type === "select" ? (
+                <select
+                  value={String(editValue)}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="border border-input rounded px-2 py-1 text-sm w-full"
+                >
+                  {field.options?.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === "checkbox" ? (
+                <input
+                  type="checkbox"
+                  checked={Boolean(editValue)}
+                  onChange={(e) => setEditValue(e.target.checked)}
+                  className="ml-2"
+                />
+              ) : field.type === "date" ? (
+                <input
+                  type="date"
+                  value={String(editValue)}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="border border-input rounded px-2 py-1 text-sm"
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={String(editValue)}
+                  onChange={(e) => setEditValue(e.target.value)}
+                  className="border border-input rounded px-2 py-1 text-sm w-full"
+                  autoFocus
+                />
+              )}
+              <button
+                onClick={handleSave}
+                className="ml-2 text-success hover:text-success/80"
+              >
+                <Check size={16} />
+              </button>
+              <button
+                onClick={handleCancel}
+                className="ml-1 text-destructive hover:text-destructive/80"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center">
+              <span className="truncate">{formatCustomFieldValue(value, field.type)}</span>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="ml-2 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Edit size={14} />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const itemsPerPage = 20;
 
   const statusOptions = useMemo(() => {
@@ -86,7 +246,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     return ["New Lead", "Meeting Done", "Deal Done", ...customStatuses];
   }, [customKpis]);
 
-  // FIX: Simplified comment initialization
   useEffect(() => {
     if (selectedLead) {
       if (
@@ -177,7 +336,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     };
   };
 
-  // FIXED: Only open modal for statuses that require comments
   const handleStatusSelection = async (leadId: string, status: string) => {
     setLeadForStatusUpdate(leadId);
     setSelectedStatus(status);
@@ -230,21 +388,15 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     }
   };
 
-  const handleSchedule = async (leadId: string) => {
-    try {
-      const dateTime = new Date(`${followUpDate}T${followUpTime}:00`);
-      await scheduleFollowUp(leadId, dateTime, followUpTime, viewingUserPhone);
-      onFollowUpScheduled(leadId, followUpDate, followUpTime);
-      setFollowUpLeadId(null);
-    } catch (error) {
-      console.error("Scheduling error:", error);
-      alert("Failed to schedule follow-up. Please try again.");
-    }
-  };
-
   const openSidePanel = (lead: Lead) => {
     setSelectedLead(lead);
     setIsSidePanelOpen(true);
+    setOpenSections({
+      customFields: false,
+      contactPreview: false,
+      qualifiersPreview: false,
+      customerType: true,
+    });
   };
 
   const closeSidePanel = () => {
@@ -276,7 +428,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
           updatedComments = updatedComments.slice(updatedComments.length - 30);
         }
         setCommentsHistory(updatedComments);
-        setCustomerComment(""); // Clear input after sending
+        setCustomerComment("");
       } catch (error) {
         console.error("Failed to save comment:", error);
         alert("Failed to save comment. Please try again.");
@@ -521,50 +673,26 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     return contactPatterns.some((pattern) => pattern.test(key));
   };
 
-  // const isQualifierField = (key: string) => {
-  //   const qualifierPatterns = [
-  //     /ad_/i,
-  //     /campaign_/i,
-  //     /form_/i,
-  //     /is_/i,
-  //     /platform/i,
-  //     /where/i,
-  //     /how/i,
-  //     /are you/i,
-  //     /what is/i,
-  //     /profession/i,
-  //     /owner/i,
-  //     /students/i,
-  //     /fees/i,
-  //     /question/i,
-  //     /conditional/i,
-  //     /verif/i,
-  //     /enroll/i,
-  //   ];
-
-  //   return qualifierPatterns.some((pattern) => pattern.test(key));
-  // };
-
   interface CollapsibleSectionProps {
     title: string;
     icon?: React.ReactNode;
     children: React.ReactNode;
-    defaultOpen?: boolean;
+    isOpen: boolean;
+    onToggle: () => void;
   }
 
   const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     title,
     icon,
     children,
-    defaultOpen = true,
+    isOpen,
+    onToggle,
   }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
-
     return (
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <button
           className="flex items-center justify-between w-full p-4 text-left"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={onToggle}
         >
           <div className="flex items-center gap-2">
             {icon}
@@ -678,6 +806,27 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     );
   };
 
+  function formatCustomFieldValue(value: unknown, type: string): string {
+    if (value === undefined || value === null) return "N/A";
+    
+    switch (type) {
+      case "date":
+      case "datetime":
+        if (typeof value === "string" && value) {
+          const date = parseLeadDate(value);
+          return date ? format(date, "MMM dd, yyyy hh:mm a") : value.toString();
+        }
+        return value.toString();
+      case "boolean":
+        return value ? "Yes" : "No";
+      case "number":
+        return typeof value === "number" ? value.toString() : (Number(value) || "N/A").toString();
+      case "string":
+      default:
+        return String(value);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -702,28 +851,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     );
   }
 
-  function formatCustomFieldValue(value: unknown, type: string): unknown {
-    if (value === undefined || value === null) return "N/A";
-    switch (type) {
-      case "date":
-      case "datetime":
-        if (typeof value === "string" && value) {
-          const date = parseLeadDate(value);
-          return date ? format(date, "MMM dd, yyyy hh:mm a") : value;
-        }
-        return value;
-      case "boolean":
-        return value ? "Yes" : "No";
-      case "number":
-        return typeof value === "number" ? value : Number(value) || "N/A";
-      case "string":
-      default:
-        return String(value);
-    }
-  }
   return (
     <div className="bg-card rounded-lg shadow overflow-hidden relative">
-      {/* Status update modal - UPDATED */}
       <StatusUpdateModal
         isOpen={statusUpdateModalOpen}
         onClose={() => setStatusUpdateModalOpen(false)}
@@ -1244,30 +1373,58 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       />
                     </div>
 
+                    {/* Per-lead Customer Type Section */}
+                    <CollapsibleSection
+                      title="Customers"
+                      icon={<Tag className="text-purple-500" size={16} />}
+                      isOpen={openSections.customerType}
+                      onToggle={() => toggleSection("customerType")}
+                    >
+                      <div className="grid grid-cols-3 gap-3">
+                        {['Basic', 'Advance', 'Pro'].map((type) => (
+                          <div
+                            key={type}
+                            className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer transition-all ${
+                              customerTypes[selectedLead.id!] === type
+                                ? 'bg-primary/10 border-primary text-primary'
+                                : 'bg-card border-border text-muted-foreground hover:bg-muted'
+                            }`}
+                            onClick={() => handleCustomerTypeChange(selectedLead.id!, type)}
+                          >
+                            <div className={`w-4 h-4 rounded-full border mr-2 flex items-center justify-center ${
+                              customerTypes[selectedLead.id!] === type
+                                ? 'bg-primary border-primary'
+                                : 'border-muted-foreground'
+                            }`}>
+                              {customerTypes[selectedLead.id!] === type && (
+                                <div className="w-2 h-2 rounded-full bg-primary"></div>
+                              )}
+                            </div>
+                            <span className="text-sm font-medium">{type}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CollapsibleSection>
 
                     {customFields && customFields.length > 0 && (
                       <CollapsibleSection
                         title="Custom Fields"
                         icon={<Tag className="text-purple-500" size={16} />}
-                        defaultOpen={false}
+                        isOpen={openSections.customFields}
+                        onToggle={() => toggleSection("customFields")}
                       >
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                           {customFields.map((field) => (
-                            <div key={field.id} className="flex">
-                              <div className="w-32 flex-shrink-0 text-muted-foreground truncate">
-                                {field.name}
-                              </div>
-                              <div className="font-medium text-foreground truncate">
-                                {String(
-                                  formatCustomFieldValue(
-                                    (selectedLead as Record<string, unknown>)?.[
-                                      field.name
-                                    ],
-                                    field.type
-                                  )
-                                )}
-                              </div>
-                            </div>
+                            <EditableField
+                              key={field.id}
+                              leadId={selectedLead.id!}
+                              field={field}
+                              value={
+                                (selectedLead as Record<string, unknown>)?.[
+                                  field.name
+                                ]
+                              }
+                            />
                           ))}
                         </div>
                       </CollapsibleSection>
@@ -1276,7 +1433,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     <CollapsibleSection
                       title="Contact Preview"
                       icon={<User className="text-primary" size={16} />}
-                      defaultOpen={false}
+                      isOpen={openSections.contactPreview}
+                      onToggle={() => toggleSection("contactPreview")}
                     >
                       <div className="grid grid-cols-2 gap-2 text-sm">
                         {Object.entries(selectedLead)
@@ -1298,7 +1456,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     <CollapsibleSection
                       title="Qualifiers Preview"
                       icon={<Award className="text-success" size={16} />}
-                      defaultOpen={false}
+                      isOpen={openSections.qualifiersPreview}
+                      onToggle={() => toggleSection("qualifiersPreview")}
                     >
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 text-sm">
                         {(() => {
@@ -1341,7 +1500,8 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                   <CollapsibleSection
                     title="Contact Details"
                     icon={<User className="text-primary" size={18} />}
-                    defaultOpen={true}
+                    isOpen={true}
+                    onToggle={() => {}}
                   >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       {Object.entries(selectedLead)
@@ -1360,7 +1520,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                   </CollapsibleSection>
                 )}
 
-                {/* Qualifiers Tab */}
                 {activeTab === "Qualifiers" && (
                   <CollapsibleQualifierSection
                     title="Lead Qualifiers"
@@ -1456,7 +1615,6 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </div>
 
                     <div className="border-t border-border pt-4">
-                      {/* Updated comment input with 3-line textarea-like input */}
                       <div className="relative">
                         <input
                           type="text"
@@ -1547,21 +1705,3 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
 };
 
 export default LeadsTable;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

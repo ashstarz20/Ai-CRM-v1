@@ -221,6 +221,15 @@ const Dashboard: React.FC = () => {
     loadData();
   }, []);
 
+
+
+  // Add this function
+  const handleUpdateCustomField = (leadId: string, fieldName: string, newValue: any) => {
+    setLeads(leads.map(lead => 
+      lead.id === leadId ? { ...lead, [fieldName]: newValue } : lead
+    ));
+  };
+
   // CSV Import functions from second version
   const handleCSVImport = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -641,6 +650,7 @@ const Dashboard: React.FC = () => {
         viewingUserDisplayName={viewingUserDisplayName}
         customKpis={customKpis}
         customFields={customFields}
+        onUpdateCustomField={handleUpdateCustomField}
       />
     </div>
   );

@@ -16,10 +16,7 @@ import Settings from "./pages/Settings";
 import Meta from "./pages/Campaign/Meta";
 import Google from "./pages/Campaign/Google";
 import WhatsApp from "./pages/Campaign/WhatsApp";
-import Basic from "./pages/Customers/Basic";
-import Advance from "./pages/Customers/Advance";
 import DashboardLayout from "./components/layout/DashboardLayout";
-import Pro from "./pages/Customers/Pro";
 import ServicesGoogle from "./pages/MyServices/Google";
 import ServicesMeta from "./pages/MyServices/Meta";
 import ServicesWhatsApp from "./pages/MyServices/WhatsApp";
@@ -70,11 +67,11 @@ function App() {
               <Route path="google" element={<Google />} />
               <Route path="whatsapp" element={<WhatsApp />} />
             </Route>
-            <Route path="customers">
+            {/* <Route path="customers">
               <Route path="basic" element={<Basic />} />
               <Route path="advance" element={<Advance />} />
               <Route path="pro" element={<Pro />} />
-            </Route>
+            </Route> */}
             <Route path="myservices">
               <Route path="sgoogle" element={<ServicesGoogle />} />
               <Route path="smeta" element={<ServicesMeta />} />

@@ -148,6 +148,32 @@ export const scheduleFollowUp = async (
   }
 };
 
+// Update a custom field for a lead //
+
+// Update a custom field for a lead
+export const updateLeadCustomField = async (
+  leadId: string,
+  fieldName: string,
+  newValue: unknown,
+  userPhone: string
+) => {
+  try {
+    const sanitizedPhone = userPhone.replace(/[^\d]/g, "");
+    const leadRef = doc(db, `crm_users/${sanitizedPhone}/leads`, leadId);
+    
+    await setDoc(leadRef, {
+      [fieldName]: newValue
+    }, { merge: true });
+    
+    return true;
+  } catch (error) {
+    console.error("Error updating custom field:", error);
+    throw new Error("Failed to update custom field");
+  }
+};
+
+
+
 export const updateCustomerComment = async (
   leadId: string,
   comment: string,

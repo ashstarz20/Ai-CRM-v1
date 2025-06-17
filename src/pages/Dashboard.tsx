@@ -32,6 +32,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useMeet } from "../context/MeetContext";
 import { fetchCustomFields } from "../services/customFields";
 
 const Dashboard: React.FC = () => {
@@ -58,6 +59,7 @@ const Dashboard: React.FC = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [importError, setImportError] = useState("");
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const { addToMeet } = useMeet();
 
   // Fetch custom fields when component loads
   useEffect(() => {
@@ -74,6 +76,11 @@ const Dashboard: React.FC = () => {
     };
     loadCustomFields();
   }, [currentUser]);
+
+  // const handleAddToMeet = (lead: { name: string; contact: string; date: string; time: string }) => {
+  //   // In a real app, you might want to save this to a database or global state
+  //   console.log('Adding to meet:', lead);
+  // };
 
 
 
@@ -651,6 +658,7 @@ const Dashboard: React.FC = () => {
         customKpis={customKpis}
         customFields={customFields}
         onUpdateCustomField={handleUpdateCustomField}
+        addToMeet={addToMeet}
       />
     </div>
   );

@@ -25,6 +25,8 @@ import { SyncLoader } from "react-spinners";
 import { FaBell, FaWhatsapp, FaFacebookF, FaInstagram } from "react-icons/fa";
 import { CollapsibleQualifierSection } from "../../../src/components/collapsiblesection";
 import { updateLeadCustomField } from "../../services/api";
+import { useCustomerType } from "../../context/CustomerTypeContext";
+import { useNotification } from "../../context/NotificationContext";
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -36,7 +38,17 @@ interface LeadsTableProps {
   viewingUserDisplayName: string;
   customKpis: CustomKpi[];
   customFields?: CustomField[];
-  onUpdateCustomField: (leadId: string, fieldName: string, newValue: unknown) => void;
+  onUpdateCustomField: (
+    leadId: string,
+    fieldName: string,
+    newValue: unknown
+  ) => void;
+  addToMeet: (lead: {
+    name: string;
+    contact: string;
+    date: string;
+    time: string;
+  }) => void;
 }
 
 const LeadsTable: React.FC<LeadsTableProps> = ({
@@ -50,7 +62,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   customKpis,
   customFields = [],
   onUpdateCustomField,
+  addToMeet,
 }) => {
+  const { customerTypes, setCustomerType } = useCustomerType();
+  const { addNotification } = useNotification();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
@@ -65,32 +80,20 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   const [activeTab, setActiveTab] = useState<
     "Overview" | "Contact" | "Qualifiers" | "Comments"
   >("Overview");
-  const [commentsHistory, setCommentsHistory] = useState<CommentHistoryItem[]>([]);
+  const [commentsHistory, setCommentsHistory] = useState<CommentHistoryItem[]>(
+    []
+  );
   const [statusUpdateModalOpen, setStatusUpdateModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>("");
-  const [leadForStatusUpdate, setLeadForStatusUpdate] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    customFields: false,
-    contactPreview: false,
-    qualifiersPreview: false,
-    customerType: true, // Keep customer type section open by default
-  });
-
-  // Per-lead customer type state
-  const [customerTypes, setCustomerTypes] = useState<Record<string, string>>(() => {
-    // Try to load from localStorage for persistence
-    try {
-      const stored = localStorage.getItem("leadCustomerTypes");
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  });
-
-  useEffect(() => {
-    // Persist customerTypes to localStorage
-    localStorage.setItem("leadCustomerTypes", JSON.stringify(customerTypes));
-  }, [customerTypes]);
+  const [leadForStatusUpdate, setLeadForStatusUpdate] = useState<string | null>(
+    null
+  );
+  const [openSectionKey, setOpenSectionKey] = useState<string | null>(
+    "customerType"
+  );
+  const [scheduledLeads, setScheduledLeads] = useState<Record<string, boolean>>(
+    {}
+  );
 
   interface CommentHistoryItem {
     user: string;
@@ -100,19 +103,31 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   }
 
   const toggleSection = (section: string) => {
-    setOpenSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
+    setOpenSectionKey((prev) => (prev === section ? null : section));
   };
 
-  // Handle customer type selection for a specific lead
-  const handleCustomerTypeChange = (leadId: string, type: string) => {
-    setCustomerTypes(prev => ({
-      ...prev,
-      [leadId]: type,
-    }));
-  };
+
+  // Notification for new leads //
+  useEffect(() => {
+  if (leads.length > 0) {
+    // Get the most recent lead
+    const recentLead = leads[0];
+    
+    // Check if this lead was created in the last 10 seconds
+    const leadDate = recentLead.created_time ? new Date(recentLead.created_time) : new Date();
+    const now = new Date();
+    const diffSeconds = (now.getTime() - leadDate.getTime()) / 1000;
+    
+    if (diffSeconds < 10) {
+      addNotification({
+        type: 'lead',
+        title: 'New Lead Added',
+        message: `${recentLead.name || 'A new lead'} has been added to your dashboard`,
+        link: `/dashboard`
+      });
+    }
+  }
+}, [leads, addNotification]);
 
   const handleSaveCustomField = async (
     leadId: string,
@@ -225,7 +240,9 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
             </div>
           ) : (
             <div className="flex items-center">
-              <span className="truncate">{formatCustomFieldValue(value, field.type)}</span>
+              <span className="truncate">
+                {formatCustomFieldValue(value, field.type)}
+              </span>
               <button
                 onClick={() => setIsEditing(true)}
                 className="ml-2 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
@@ -377,6 +394,38 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     }
   };
 
+  // --- Improved Follow-up Scheduling Logic ---
+  const handleSchedule = async (leadId: string) => {
+    if (!followUpDate || !followUpTime) return;
+    try {
+      if (followUpDate) {
+        await scheduleFollowUp(
+          leadId,
+          new Date(followUpDate),
+          followUpTime,
+          viewingUserPhone
+        );
+        onFollowUpScheduled(leadId, followUpDate, followUpTime);
+      }
+
+      // Find the lead that was scheduled
+      const scheduledLead = leads.find((lead) => lead.id === leadId);
+      if (scheduledLead) {
+        addToMeet({
+          name: scheduledLead.name || "Unnamed Lead",
+          contact: scheduledLead.whatsapp_number_ || "N/A",
+          date: followUpDate,
+          time: followUpTime,
+        });
+      }
+
+      setScheduledLeads((prev) => ({ ...prev, [leadId]: true }));
+      setFollowUpLeadId(null);
+    } catch (error) {
+      console.error("Error scheduling follow-up:", error);
+    }
+  };
+
   const handleFollowUpClick = (leadId: string) => {
     if (followUpLeadId === leadId) {
       setFollowUpLeadId(null);
@@ -391,12 +440,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   const openSidePanel = (lead: Lead) => {
     setSelectedLead(lead);
     setIsSidePanelOpen(true);
-    setOpenSections({
-      customFields: false,
-      contactPreview: false,
-      qualifiersPreview: false,
-      customerType: true,
-    });
+    setOpenSectionKey("customerType");
   };
 
   const closeSidePanel = () => {
@@ -689,9 +733,9 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     onToggle,
   }) => {
     return (
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden transition-all duration-300 ease-in-out hover:shadow-md">
         <button
-          className="flex items-center justify-between w-full p-4 text-left"
+          className="flex items-center justify-between w-full p-4 text-left hover:bg-accent/20 transition-colors duration-200"
           onClick={onToggle}
         >
           <div className="flex items-center gap-2">
@@ -699,14 +743,18 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
             <h3 className="font-semibold text-foreground">{title}</h3>
           </div>
           <ChevronDown
-            className={`transition-transform text-muted-foreground ${
+            className={`transition-transform text-muted-foreground duration-300 ${
               isOpen ? "rotate-180" : ""
             }`}
             size={18}
           />
         </button>
 
-        {isOpen && <div className="p-4 border-t border-border">{children}</div>}
+        {isOpen && (
+          <div className="p-4 border-t border-border transition-all duration-300 ease-in-out">
+            {children}
+          </div>
+        )}
       </div>
     );
   };
@@ -729,7 +777,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
     bgTo,
   }) => (
     <div
-      className={`bg-gradient-to-br ${bgFrom} ${bgTo} border border-border rounded-xl p-3`}
+      className={`bg-gradient-to-br ${bgFrom} ${bgTo} border border-border rounded-xl p-3 transition-transform duration-300 hover:scale-[1.02] hover:shadow-sm`}
     >
       <div className="text-xs text-muted-foreground">{title}</div>
       <div className={`flex items-center mt-1 ${color || "text-foreground"}`}>
@@ -808,7 +856,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
 
   function formatCustomFieldValue(value: unknown, type: string): string {
     if (value === undefined || value === null) return "N/A";
-    
+
     switch (type) {
       case "date":
       case "datetime":
@@ -820,7 +868,9 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
       case "boolean":
         return value ? "Yes" : "No";
       case "number":
-        return typeof value === "number" ? value.toString() : (Number(value) || "N/A").toString();
+        return typeof value === "number"
+          ? value.toString()
+          : (Number(value) || "N/A").toString();
       case "string":
       default:
         return String(value);
@@ -894,7 +944,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="focus:ring-primary focus:border-primary block sm:text-sm border-input rounded-md bg-background"
+              className="focus:ring-primary focus:border-primary block sm:text-sm border-input rounded-md bg-background transition-colors duration-200 hover:bg-accent/20"
             >
               <option value="all">All Statuses</option>
               {statuses.map((status) => (
@@ -907,7 +957,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
             <select
               value={platformFilter}
               onChange={(e) => setPlatformFilter(e.target.value)}
-              className="focus:ring-primary focus:border-primary block sm:text-sm border-input rounded-md bg-background"
+              className="focus:ring-primary focus:border-primary block sm:text-sm border-input rounded-md bg-background transition-colors duration-200 hover:bg-accent/20"
             >
               <option value="all">All Platforms</option>
               {platforms.map((platform) => (
@@ -922,7 +972,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
 
       <div className="flex flex-col md:flex-row h-[calc(100vh-150px)]">
         <div
-          className={`transition-all duration-300 ease-in-out ${
+          className={`transition-all duration-400 ease-in-out ${
             isSidePanelOpen ? "w-full md:w-2/6" : "w-full"
           } overflow-hidden flex flex-col`}
         >
@@ -933,7 +983,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                   <tr>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-28 cursor-pointer"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-28 cursor-pointer hover:bg-accent/20 transition-colors"
                       onClick={() => handleSort("date")}
                     >
                       <div className="flex items-center">
@@ -946,13 +996,13 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hover:bg-accent/20 transition-colors"
                     >
                       Platform
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24 cursor-pointer"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider w-24 cursor-pointer hover:bg-accent/20 transition-colors"
                       onClick={() => handleSort("name")}
                     >
                       <div className="flex items-center">
@@ -965,19 +1015,19 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hover:bg-accent/20 transition-colors"
                     >
                       Contact
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hover:bg-accent/20 transition-colors"
                     >
                       Location
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-accent/20 transition-colors"
                       onClick={() => handleSort("score")}
                     >
                       <div className="flex items-center">
@@ -990,13 +1040,13 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider hover:bg-accent/20 transition-colors"
                     >
                       Status
                     </th>
                     <th
                       scope="col"
-                      className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider w-32"
+                      className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider w-32 hover:bg-accent/20 transition-colors"
                     >
                       Actions
                     </th>
@@ -1016,6 +1066,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       return match ? match[0].toUpperCase() : "?";
                     };
 
+                    const isScheduled =
+                      scheduledLeads[lead.id!] ||
+                      (!!lead.followUpDate && !!lead.followUpTime);
+
                     return (
                       <tr
                         key={lead.id}
@@ -1028,10 +1082,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                         {isSidePanelOpen ? (
                           <td className="px-4 py-3">
                             <div
-                              className="flex items-center cursor-pointer"
+                              className="flex items-center cursor-pointer group"
                               onClick={() => openSidePanel(lead)}
                             >
-                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center mr-3">
+                              <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center mr-3 transition-transform group-hover:scale-110">
                                 <span className="text-primary font-medium">
                                   {getInitial()}
                                 </span>
@@ -1062,7 +1116,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div
-                                className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${platformInfo.color} font-bold`}
+                                className={`inline-flex items-center justify-center w-8 h-8 rounded-full ${platformInfo.color} font-bold transition-transform hover:scale-110`}
                                 title={lead.platform || "Platform"}
                               >
                                 {platformInfo.icon}
@@ -1108,10 +1162,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                 disabled={updatingStatus === lead.id}
                                 className={`px-2 py-1 text-xs leading-5 font-semibold rounded-md ${getStatusColor(
                                   lead.lead_status
-                                )} focus:outline-none focus:ring-1 focus:ring-primary w-full ${
+                                )} focus:outline-none focus:ring-1 focus:ring-primary w-full transition-colors ${
                                   updatingStatus === lead.id
                                     ? "cursor-not-allowed opacity-70"
-                                    : ""
+                                    : "hover:opacity-90"
                                 }`}
                               >
                                 {statusOptions.map((status) => (
@@ -1135,18 +1189,18 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                   href={`https://wa.me/${lead.whatsapp_number_}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-success hover:text-success/80"
+                                  className="text-success hover:text-success/80 transition-transform hover:scale-110"
                                   title="Open WhatsApp"
                                 >
                                   <FaWhatsapp className="text-lg" />
                                 </a>
 
                                 <div
-                                  className={`cursor-pointer p-1 rounded-full ${
-                                    lead.followUpDate || lead.followUpTime
+                                  className={`cursor-pointer p-1 rounded-full transition-all duration-300 ${
+                                    isScheduled
                                       ? "text-success bg-success/10"
                                       : "text-foreground bg-muted"
-                                  } hover:bg-accent transition`}
+                                  } hover:bg-accent hover:shadow-md`}
                                   onClick={() => handleFollowUpClick(lead.id!)}
                                   title="Schedule Follow-up"
                                 >
@@ -1160,12 +1214,12 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                   onClick={() => setFollowUpLeadId(null)}
                                 >
                                   <div
-                                    className="bg-card border border-border rounded-md p-6 shadow-lg w-80 relative"
+                                    className="bg-card border border-border rounded-md p-6 shadow-lg w-80 relative animate-fadeIn"
                                     onClick={(e) => e.stopPropagation()}
                                   >
                                     <button
                                       onClick={() => setFollowUpLeadId(null)}
-                                      className="absolute top-3 right-3 text-muted-foreground hover:text-foreground"
+                                      className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors"
                                       aria-label="Close"
                                     >
                                       ✕
@@ -1189,7 +1243,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                         onChange={(e) =>
                                           setFollowUpDate(e.target.value)
                                         }
-                                        className="mt-1 block w-full rounded-md border border-input bg-background shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                        className="mt-1 block w-full rounded-md border border-input bg-background shadow-sm focus:border-primary focus:ring-primary sm:text-sm transition"
                                       />
                                     </div>
                                     <div className="mb-6">
@@ -1206,12 +1260,16 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                         onChange={(e) =>
                                           setFollowUpTime(e.target.value)
                                         }
-                                        className="mt-1 block w-full rounded-md border border-input bg-background shadow-sm focus:border-primary focus:ring-primary sm:text-sm"
+                                        className="mt-1 block w-full rounded-md border border-input bg-background shadow-sm focus:border-primary focus:ring-primary sm:text-sm transition"
                                       />
                                     </div>
                                     <button
                                       onClick={() => handleSchedule(lead.id!)}
-                                      className="w-full bg-primary text-primary-foreground py-2 rounded-md hover:bg-primary/90 transition"
+                                      className={`w-full py-2 rounded-md transition-transform hover:scale-[1.02] ${
+                                        followUpDate && followUpTime
+                                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                                          : "bg-muted text-muted-foreground cursor-not-allowed"
+                                      }`}
                                       disabled={!followUpDate || !followUpTime}
                                     >
                                       Schedule
@@ -1241,16 +1299,16 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
         </div>
 
         <div
-          className={`bg-card border-l border-border transition-all duration-300 ease-in-out overflow-hidden flex ${
+          className={`bg-card border-l border-border transition-all duration-400 ease-in-out overflow-hidden flex ${
             isSidePanelOpen ? "w-full md:w-4/6" : "w-0"
           }`}
         >
           {isSidePanelOpen && selectedLead && (
-            <div className="flex flex-col w-full h-full">
+            <div className="flex flex-col w-full h-full animate-fadeIn">
               <div className="p-4 bg-gradient-to-r from-primary/5 to-indigo-50 dark:to-indigo-900/10 border-b border-border">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3 truncate">
-                    <div className="bg-gradient-to-br from-primary to-indigo-600 w-10 h-10 rounded-lg flex items-center justify-center text-primary-foreground font-bold">
+                    <div className="bg-gradient-to-br from-primary to-indigo-600 w-10 h-10 rounded-lg flex items-center justify-center text-primary-foreground font-bold transition-transform hover:scale-105">
                       {selectedLead.name?.charAt(0).toUpperCase() || "?"}
                     </div>
                     <div className="truncate">
@@ -1262,7 +1320,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                           <span
                             className={`text-xs px-2 py-1 rounded-full ${getStatusColor(
                               selectedLead.lead_status
-                            )}`}
+                            )} transition-colors`}
                           >
                             {selectedLead.lead_status}
                           </span>
@@ -1288,7 +1346,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       href={`https://wa.me/${selectedLead.whatsapp_number_}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-success text-success-foreground px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm hover:bg-success/90 transition-colors"
+                      className="bg-success text-success-foreground px-3 py-1.5 rounded-lg flex items-center gap-1 text-sm hover:bg-success/90 transition-transform hover:scale-[1.02]"
                     >
                       <FaWhatsapp size={14} />
                       <span>Message</span>
@@ -1308,7 +1366,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                   (tab) => (
                     <button
                       key={tab}
-                      className={`px-4 py-3 text-sm font-medium relative ${
+                      className={`px-4 py-3 text-sm font-medium relative transition-colors duration-200 ${
                         activeTab === tab
                           ? "text-primary"
                           : "text-muted-foreground hover:text-foreground"
@@ -1325,7 +1383,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     >
                       {tab}
                       {activeTab === tab && (
-                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary transition-all duration-300"></div>
                       )}
                     </button>
                   )
@@ -1373,31 +1431,34 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       />
                     </div>
 
-                    {/* Per-lead Customer Type Section */}
                     <CollapsibleSection
                       title="Customers"
                       icon={<Tag className="text-purple-500" size={16} />}
-                      isOpen={openSections.customerType}
+                      isOpen={openSectionKey === "customerType"}
                       onToggle={() => toggleSection("customerType")}
                     >
                       <div className="grid grid-cols-3 gap-3">
-                        {['Basic', 'Advance', 'Pro'].map((type) => (
+                        {["Basic", "Advance", "Pro"].map((type) => (
                           <div
                             key={type}
-                            className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer transition-all ${
+                            className={`flex items-center justify-center p-3 rounded-lg border cursor-pointer transition-all duration-300 ${
                               customerTypes[selectedLead.id!] === type
-                                ? 'bg-primary/10 border-primary text-primary'
-                                : 'bg-card border-border text-muted-foreground hover:bg-muted'
+                                ? "bg-primary/10 border-primary text-primary"
+                                : "bg-card border-border text-muted-foreground hover:bg-muted"
                             }`}
-                            onClick={() => handleCustomerTypeChange(selectedLead.id!, type)}
+                            onClick={() =>
+                              setCustomerType(selectedLead.id!, type)
+                            }
                           >
-                            <div className={`w-4 h-4 rounded-full border mr-2 flex items-center justify-center ${
-                              customerTypes[selectedLead.id!] === type
-                                ? 'bg-primary border-primary'
-                                : 'border-muted-foreground'
-                            }`}>
+                            <div
+                              className={`w-4 h-4 rounded-full border mr-2 flex items-center justify-center transition-all ${
+                                customerTypes[selectedLead.id!] === type
+                                  ? "bg-primary border-primary"
+                                  : "border-muted-foreground"
+                              }`}
+                            >
                               {customerTypes[selectedLead.id!] === type && (
-                                <div className="w-2 h-2 rounded-full bg-primary"></div>
+                                <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
                               )}
                             </div>
                             <span className="text-sm font-medium">{type}</span>
@@ -1410,7 +1471,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       <CollapsibleSection
                         title="Custom Fields"
                         icon={<Tag className="text-purple-500" size={16} />}
-                        isOpen={openSections.customFields}
+                        isOpen={openSectionKey === "customFields"}
                         onToggle={() => toggleSection("customFields")}
                       >
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -1433,7 +1494,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     <CollapsibleSection
                       title="Contact Preview"
                       icon={<User className="text-primary" size={16} />}
-                      isOpen={openSections.contactPreview}
+                      isOpen={openSectionKey === "contactPreview"}
                       onToggle={() => toggleSection("contactPreview")}
                     >
                       <div className="grid grid-cols-2 gap-2 text-sm">
@@ -1456,7 +1517,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                     <CollapsibleSection
                       title="Qualifiers Preview"
                       icon={<Award className="text-success" size={16} />}
-                      isOpen={openSections.qualifiersPreview}
+                      isOpen={openSectionKey === "qualifiersPreview"}
                       onToggle={() => toggleSection("qualifiersPreview")}
                     >
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 text-sm">
@@ -1595,7 +1656,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                                   {new Date(comment.timestamp).toLocaleString()}
                                 </span>
                               </div>
-                              <div className="mt-1 bg-muted rounded-lg p-3 text-sm">
+                              <div className="mt-1 bg-muted rounded-lg p-3 text-sm transition-all hover:shadow-sm">
                                 <p className="text-foreground">
                                   {comment.content}
                                 </p>
@@ -1620,7 +1681,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                           type="text"
                           value={customerComment}
                           onChange={(e) => setCustomerComment(e.target.value)}
-                          className="w-full px-4 py-3 border border-input bg-background rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm min-h-[100px]"
+                          className="w-full px-4 py-3 border border-input bg-background rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm min-h-[100px] transition-all"
                           placeholder="Type a comment..."
                           style={{
                             height: "100px",
@@ -1638,7 +1699,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                       <div className="flex justify-end mt-2">
                         <button
                           onClick={handleSaveCustomerComment}
-                          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm"
+                          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-transform hover:scale-[1.02] text-sm"
                           disabled={!customerComment.trim()}
                         >
                           Send
@@ -1675,10 +1736,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className={`px-4 py-2 text-sm rounded-md ${
+                className={`px-4 py-2 text-sm rounded-md transition-all ${
                   currentPage === 1
                     ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "bg-background text-primary hover:bg-accent border border-input"
+                    : "bg-background text-primary hover:bg-accent border border-input hover:shadow-sm"
                 }`}
               >
                 Previous
@@ -1688,10 +1749,10 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                   setCurrentPage(Math.min(totalPages, currentPage + 1))
                 }
                 disabled={currentPage === totalPages}
-                className={`px-4 py-2 text-sm rounded-md ${
+                className={`px-4 py-2 text-sm rounded-md transition-all ${
                   currentPage === totalPages
                     ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-md"
                 }`}
               >
                 Next

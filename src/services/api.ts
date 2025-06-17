@@ -76,6 +76,11 @@ export const syncLeadsFromSheets = async (): Promise<void> => {
   }
 };
 
+export const fetchLeads = async (userPhone?: string): Promise<Lead[]> => {
+  return fetchLeadsFromFirestore(userPhone);
+};
+
+
 export const fetchLeadsFromFirestore = async (
   phoneNumber?: string
 ): Promise<Lead[]> => {

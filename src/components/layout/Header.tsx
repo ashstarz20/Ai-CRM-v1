@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Menu, Sun, Moon, X } from "lucide-react";     // Monitor, Bell, add next to Sun and Moon //
+import { Menu, Bell, X } from "lucide-react"; // Monitor, Sun, Moon, add next to Sun and Moon //
 import { useAuth } from "../../context/AuthContext";
 import { useLocation } from "react-router-dom";
-import { useTheme } from "../../context/ThemeContext";
+// import { useTheme } from "../../context/ThemeContext";
+import { useNotification } from "../../context/NotificationContext";
+import { Link } from "react-router-dom";
+// import { formatDate, formatRelativeTime } from "src/utils/dateutils";
+import { formatDistanceToNow } from 'date-fns';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -21,7 +25,29 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   // const [notificationsCount] = useState(3);
   const [showVideoContainer, setShowVideoContainer] = useState(false);
   const videoContainerRef = useRef<HTMLDivElement>(null);
-  const { isDarkMode, toggleTheme } = useTheme();
+  // const { isDarkMode, toggleTheme } = useTheme();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } =
+    useNotification();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+
+  //Notification Functions
+  // Add click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target as Node)
+      ) {
+        setShowNotifications(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const userInitial = currentUser?.displayName
     ? currentUser.displayName[0].toUpperCase()
@@ -75,96 +101,95 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
   //   }
   // };
 
-
   const getPageInfo = () => {
     const path = location.pathname.split("/").pop()?.toLowerCase();
     switch (path) {
-        case "dashboard":
-            return {
-                title: "Leads",
-                subtitle: "Welcome to your leads management dashboard",
-            };
-        case "analytics":
-            return {
-                title: "Analytics",
-                subtitle: "Key insights from your lead data",
-            };
-        case "settings":
-            return {
-                title: "Settings",
-                subtitle: "Manage your account settings and preferences",
-            };
-        // Campaigns
-        case "meta":
-            return {
-                title: "Meta",
-                subtitle: "Manage your Meta advertising campaigns",
-            };
-        case "google":
-            return {
-                title: "Google",
-                subtitle: "Manage your Google advertising campaigns",
-            };
-        case "whatsapp":
-            return {
-                title: "WhatsApp",
-                subtitle: "Manage your WhatsApp messaging campaigns",
-            };
-        // Customers
-        case "basic":
-            return {
-                title: "Basic",
-                subtitle: "Manage your basic customer accounts",
-            };
-        case "advance":
-            return {
-                title: "Advance",
-                subtitle: "Manage advanced customer relationships",
-            };
-        case "pro":
-            return {
-                title: "Pro",
-                subtitle: "Manage premium customer accounts",
-            };
-        // MyServices
-        case "sgoogle":
-            return {
-                title: "Google",
-                subtitle: "Manage your Google service integrations",
-            };
-        case "smeta":
-            return {
-                title: "Meta",
-                subtitle: "Manage your Meta platform services",
-            };
-        case "swhatsapp":
-            return {
-                title: "WhatsApp",
-                subtitle: "Manage your WhatsApp business services",
-            };
-        case "sweb":
-            return {
-                title: "Web",
-                subtitle: "Manage your website integrations",
-            };
-        case "sapp":
-            return {
-                title: "App",
-                subtitle: "Manage your mobile application services",
-            };
-        // Tasks & Meetings
-        case "taskmeet":
-            return {
-                title: "Task/Meet",
-                subtitle: "Manage your tasks and meetings",
-            };
-        default:
-            return {
-                title: "Dashboard",
-                subtitle: "Welcome to your leads management dashboard",
-            };
+      case "dashboard":
+        return {
+          title: "Leads",
+          subtitle: "Welcome to your leads management dashboard",
+        };
+      case "analytics":
+        return {
+          title: "Analytics",
+          subtitle: "Key insights from your lead data",
+        };
+      case "settings":
+        return {
+          title: "Settings",
+          subtitle: "Manage your account settings and preferences",
+        };
+      // Campaigns
+      case "meta":
+        return {
+          title: "Meta",
+          subtitle: "Manage your Meta advertising campaigns",
+        };
+      case "google":
+        return {
+          title: "Google",
+          subtitle: "Manage your Google advertising campaigns",
+        };
+      case "whatsapp":
+        return {
+          title: "WhatsApp",
+          subtitle: "Manage your WhatsApp messaging campaigns",
+        };
+      // Customers
+      case "basic":
+        return {
+          title: "Basic",
+          subtitle: "Manage your basic customer accounts",
+        };
+      case "advance":
+        return {
+          title: "Advance",
+          subtitle: "Manage advanced customer relationships",
+        };
+      case "pro":
+        return {
+          title: "Pro",
+          subtitle: "Manage premium customer accounts",
+        };
+      // MyServices
+      case "sgoogle":
+        return {
+          title: "Google",
+          subtitle: "Manage your Google service integrations",
+        };
+      case "smeta":
+        return {
+          title: "Meta",
+          subtitle: "Manage your Meta platform services",
+        };
+      case "swhatsapp":
+        return {
+          title: "WhatsApp",
+          subtitle: "Manage your WhatsApp business services",
+        };
+      case "sweb":
+        return {
+          title: "Web",
+          subtitle: "Manage your website integrations",
+        };
+      case "sapp":
+        return {
+          title: "App",
+          subtitle: "Manage your mobile application services",
+        };
+      // Tasks & Meetings
+      case "taskmeet":
+        return {
+          title: "Task/Meet",
+          subtitle: "Manage your tasks and meetings",
+        };
+      default:
+        return {
+          title: "Dashboard",
+          subtitle: "Welcome to your leads management dashboard",
+        };
     }
-};
+  };
 
   const videoLinks: VideoLink[] = [
     {
@@ -230,6 +255,17 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             </button>
           </div> */}
 
+
+
+
+
+
+
+
+
+
+
+           
           {/* <div className="relative">
             <button
               className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700"
@@ -244,13 +280,100 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             )}
           </div> */}
 
-          <button
+          <div className="relative" ref={notificationsRef}>
+            <button
+              className={`p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                showNotifications
+                  ? "text-blue-600 bg-blue-100 dark:bg-blue-900 dark:text-blue-200"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+              }`}
+              onClick={() => setShowNotifications(!showNotifications)}
+            >
+              <Bell size={20} />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl z-50 border border-gray-200 dark:border-gray-700 max-h-96 overflow-hidden flex flex-col">
+                <div className="p-4 border-b border-border">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-lg">Notifications</h3>
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                    >
+                      Mark all as read
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-y-auto flex-1">
+                  {notifications.slice(0, 5).map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`p-4 border-b border-border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                        notification.read
+                          ? "bg-white dark:bg-gray-800"
+                          : "bg-blue-50 dark:bg-blue-900/20"
+                      }`}
+                      onClick={() => {
+                        markAsRead(notification.id);
+                        setShowNotifications(false);
+                      }}
+                    >
+                      <div className="flex justify-between">
+                        <span
+                          className={`font-medium ${
+                            notification.read
+                              ? "text-gray-700 dark:text-gray-300"
+                              : "text-blue-700 dark:text-blue-300"
+                          }`}
+                        >
+                          {notification.title}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {formatDistanceToNow(notification.date, {
+                            addSuffix: true,
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-sm mt-1 text-gray-600 dark:text-gray-400">
+                        {notification.message}
+                      </p>
+                    </div>
+                  ))}
+
+                  {notifications.length === 0 && (
+                    <div className="p-4 text-center text-gray-500">
+                      No notifications
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3 border-t border-border">
+                  <Link
+                    to="/dashboard/notifications"
+                    className="block text-center text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                    onClick={() => setShowNotifications(false)}
+                  >
+                    View all notifications
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* <button
             className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700"
             onClick={toggleTheme}
             aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
             {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
+          </button> */}
 
           <div className="flex items-center space-x-2">
             <div className="h-8 w-8 bg-blue-600 flex items-center justify-center rounded-full text-white font-medium">

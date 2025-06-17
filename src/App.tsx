@@ -23,6 +23,13 @@ import ServicesWhatsApp from "./pages/MyServices/WhatsApp";
 import Web from "./pages/MyServices/Web";
 import ServicesApp from "./pages/MyServices/App";
 import Meet from "./pages/Task/Meet";
+import Basic from "./pages/Customers/Basic";
+import Advance from "./pages/Customers/Advance";
+import Pro from "./pages/Customers/Pro";
+import NotificationPage from "./pages/Notification";
+import { CustomerTypeProvider } from "./context/CustomerTypeContext";
+import { MeetProvider } from "./context/MeetContext";
+import { NotificationProvider } from "./context/NotificationContext";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser, loading } = useAuth();
@@ -45,58 +52,75 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
+      <NotificationProvider>
+        <CustomerTypeProvider>
+          <MeetProvider>
+            <Router>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<SignUp />} />
 
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Dashboard />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="taskmeet" element={<Meet />} />
-            <Route path="campaigns">
-              <Route path="meta" element={<Meta />} />
-              <Route path="google" element={<Google />} />
-              <Route path="whatsapp" element={<WhatsApp />} />
-            </Route>
-            {/* <Route path="customers">
-              <Route path="basic" element={<Basic />} />
-              <Route path="advance" element={<Advance />} />
-              <Route path="pro" element={<Pro />} />
-            </Route> */}
-            <Route path="myservices">
-              <Route path="sgoogle" element={<ServicesGoogle />} />
-              <Route path="smeta" element={<ServicesMeta />} />
-              <Route path="swhatsapp" element={<ServicesWhatsApp />} />
-              <Route path="sweb" element={<Web />} />
-              <Route path="sapp" element={<ServicesApp />} />
-            </Route>
-          </Route>
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Dashboard />} />
+                  <Route path="analytics" element={<Analytics />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="taskmeet" element={<Meet />} />
+                  <Route path="campaigns">
+                    <Route path="meta" element={<Meta />} />
+                    <Route path="google" element={<Google />} />
+                    <Route path="whatsapp" element={<WhatsApp />} />
+                  </Route>
+                  <Route path="customers">
+                    <Route path="basic" element={<Basic />} />
+                    <Route path="advance" element={<Advance />} />
+                    <Route path="pro" element={<Pro />} />
+                  </Route>
 
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Router>
+                  <Route path="myservices">
+                    <Route path="sgoogle" element={<ServicesGoogle />} />
+                    <Route path="smeta" element={<ServicesMeta />} />
+                    <Route path="swhatsapp" element={<ServicesWhatsApp />} />
+                    <Route path="sweb" element={<Web />} />
+                    <Route path="sapp" element={<ServicesApp />} />
+                  </Route>
+                </Route>
+                <Route
+                  path="notifications"
+                  element={
+                    <ProtectedRoute>
+                      <NotificationPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/"
+                  element={<Navigate to="/dashboard" replace />}
+                />
+              </Routes>
+            </Router>
 
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="colored"
-      />
+            <ToastContainer
+              position="top-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="colored"
+            />
+          </MeetProvider>
+        </CustomerTypeProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

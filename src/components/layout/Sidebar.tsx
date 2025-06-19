@@ -20,7 +20,7 @@ import {
   UserCog,
   Award,
   Globe,
-  Smartphone,
+  // Smartphone,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { FcGoogle } from "react-icons/fc"; // Google icon
@@ -317,13 +317,13 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
                   <Globe className="mr-3 h-4 w-4 text-blue-500" />
                   Web
                 </NavLink>
-                <NavLink
+                {/* <NavLink
                   to="/dashboard/myservices/sapp"
                   className={({ isActive }) => getNavLinkClass(isActive)}
                 >
                   <Smartphone className="mr-3 h-4 w-4 text-purple-500" />
                   App
-                </NavLink>
+                </NavLink> */}
               </div>
             </div>
           </div>

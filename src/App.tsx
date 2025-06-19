@@ -30,6 +30,8 @@ import NotificationPage from "./pages/Notification";
 import { CustomerTypeProvider } from "./context/CustomerTypeContext";
 import { MeetProvider } from "./context/MeetContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import MeetingNotificationMonitor from "./pages/NotificationMonitor";
+import Chats from "./pages/Chats";
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { currentUser, loading } = useAuth();
@@ -55,6 +57,7 @@ function App() {
       <NotificationProvider>
         <CustomerTypeProvider>
           <MeetProvider>
+            <MeetingNotificationMonitor />
             <Router>
               <Routes>
                 <Route path="/login" element={<Login />} />
@@ -70,6 +73,7 @@ function App() {
                 >
                   <Route index element={<Dashboard />} />
                   <Route path="analytics" element={<Analytics />} />
+                  <Route path="chats" element={<Chats />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="taskmeet" element={<Meet />} />
                   <Route path="campaigns">

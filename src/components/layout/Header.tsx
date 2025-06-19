@@ -6,7 +6,7 @@ import { useLocation } from "react-router-dom";
 import { useNotification } from "../../context/NotificationContext";
 import { Link } from "react-router-dom";
 // import { formatDate, formatRelativeTime } from "src/utils/dateutils";
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from "date-fns";
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -75,32 +75,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     };
   }, []);
 
-  // const getPageInfo = () => {
-  //   const path = location.pathname.split("/").pop();
-  //   switch (path) {
-  //     case "dashboard":
-  //       return {
-  //         title: "Leads",
-  //         subtitle: "Welcome to your leads management dashboard",
-  //       };
-  //     case "analytics":
-  //       return {
-  //         title: "Analytics",
-  //         subtitle: "Key insights from your lead data",
-  //       };
-  //     case "settings":
-  //       return {
-  //         title: "Settings",
-  //         subtitle: "Manage your account settings and preferences",
-  //       };
-  //     default:
-  //       return {
-  //         title: "Dashboard",
-  //         subtitle: "Welcome to your leads management dashboard",
-  //       };
-  //   }
-  // };
-
   const getPageInfo = () => {
     const path = location.pathname.split("/").pop()?.toLowerCase();
     switch (path) {
@@ -113,6 +87,11 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         return {
           title: "Analytics",
           subtitle: "Key insights from your lead data",
+        };
+      case "chats":
+        return {
+          title: "Chats",
+          subtitle: "Manage your conversations with customers",
         };
       case "settings":
         return {
@@ -255,17 +234,6 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
             </button>
           </div> */}
 
-
-
-
-
-
-
-
-
-
-
-           
           {/* <div className="relative">
             <button
               className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-400 dark:hover:bg-gray-700"
@@ -313,17 +281,18 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
 
                 <div className="overflow-y-auto flex-1">
                   {notifications.slice(0, 5).map((notification) => (
-                    <div
+                    <Link
                       key={notification.id}
-                      className={`p-4 border-b border-border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                        notification.read
-                          ? "bg-white dark:bg-gray-800"
-                          : "bg-blue-50 dark:bg-blue-900/20"
-                      }`}
+                      to={notification.link || "/dashboard"}
                       onClick={() => {
                         markAsRead(notification.id);
                         setShowNotifications(false);
                       }}
+                      className={`block p-4 border-b border-border cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
+                        notification.read
+                          ? "bg-white dark:bg-gray-800"
+                          : "bg-blue-50 dark:bg-blue-900/20"
+                      }`}
                     >
                       <div className="flex justify-between">
                         <span
@@ -344,7 +313,7 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
                       <p className="text-sm mt-1 text-gray-600 dark:text-gray-400">
                         {notification.message}
                       </p>
-                    </div>
+                    </Link>
                   ))}
 
                   {notifications.length === 0 && (

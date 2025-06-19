@@ -1,49 +1,10 @@
-import { format, isBefore} from 'date-fns';
-import { Calendar, Clock, Phone } from 'lucide-react';
+import { format, isBefore, isAfter, addDays } from 'date-fns';
+import { Calendar, Clock, Phone, X } from 'lucide-react';
 import { useMeet } from '../../context/MeetContext';
-import { useNotification } from '../../context/NotificationContext';
-import { useEffect } from 'react';
 
 const Meet = () => {
-  const { scheduledLeads } = useMeet();
-  const { addNotification } = useNotification();
+  const { scheduledLeads, removeFromMeet } = useMeet();
 
-  // Notification logic to check for upcoming or overdue meetings
-  useEffect(() => {
-  scheduledLeads.forEach(meeting => {
-    try {
-      const now = new Date();
-      const meetingDateTime = new Date(`${meeting.date}T${meeting.time}`);
-      
-      // Check if meeting is within the next hour
-      const timeDiff = meetingDateTime.getTime() - now.getTime();
-      const hoursDiff = timeDiff / (1000 * 60 * 60);
-      
-      if (hoursDiff > 0 && hoursDiff <= 1) {
-        addNotification({
-          type: 'meeting',
-          title: 'Meeting Reminder',
-          message: `Meeting with ${meeting.name} is coming up in ${Math.ceil(hoursDiff * 60)} minutes`,
-          link: `/dashboard/taskmeet`
-        });
-      }
-      
-      // Check if meeting is overdue
-      if (timeDiff < 0 && Math.abs(hoursDiff) <= 1) {
-        addNotification({
-          type: 'meeting',
-          title: 'Meeting Overdue',
-          message: `Meeting with ${meeting.name} was scheduled ${Math.ceil(Math.abs(hoursDiff) * 60)} minutes ago`,
-          link: `/dashboard/taskmeet`
-        });
-      }
-    } catch (e) {
-      console.error("Error processing meeting notification", e);
-    }
-  });
-}, [scheduledLeads, addNotification]);
-
-  // Helper to format date for display
   const formatDisplayDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM dd, yyyy');
@@ -52,14 +13,20 @@ const Meet = () => {
     }
   };
 
-  // Helper to check if the meeting is in the past
   const isMeetingPast = (dateString: string, timeString: string) => {
     try {
-      // Combine date and time into a single Date object
-      const dateTimeString = `${dateString}T${timeString}`;
-      const meetingDate = new Date(dateTimeString);
-      const now = new Date();
-      return isBefore(meetingDate, now);
+      const dateTime = new Date(`${dateString}T${timeString}`);
+      return isBefore(dateTime, new Date());
+    } catch {
+      return false;
+    }
+  };
+
+  const isMeetingFarFuture = (dateString: string, timeString: string) => {
+    try {
+      const dateTime = new Date(`${dateString}T${timeString}`);
+      const twoDaysLater = addDays(new Date(), 2);
+      return isAfter(dateTime, twoDaysLater);
     } catch {
       return false;
     }
@@ -83,31 +50,44 @@ const Meet = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {scheduledLeads.map((lead, index) => {
+          {scheduledLeads.map((lead) => {
             const meetingIsPast = isMeetingPast(lead.date, lead.time);
+            const meetingIsFarFuture = isMeetingFarFuture(lead.date, lead.time);
 
             return (
               <div
-                key={index}
-                className={`border rounded-lg p-4 transition-shadow ${
+                key={lead.id}
+                className={`border rounded-lg p-4 transition-shadow relative ${
                   meetingIsPast
-                    ? 'bg-muted text-muted-foreground opacity-60 cursor-not-allowed'
+                    ? 'bg-muted text-muted-foreground opacity-60'
+                    : meetingIsFarFuture
+                    ? 'bg-blue-50 dark:bg-blue-900/10'
                     : 'hover:shadow-md'
                 }`}
-                aria-disabled={meetingIsPast}
-                tabIndex={meetingIsPast ? -1 : 0}
               >
-                <div className="flex items-center justify-between mb-3">
+                <div className="absolute top-2 right-2">
+                  <button
+                    onClick={() => removeFromMeet(lead.id)}
+                    className="p-1 rounded-full hover:bg-gray-200 transition-colors"
+                    aria-label="Delete meeting"
+                  >
+                    <X className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between mb-3 pr-8">
                   <h3 className="font-semibold text-lg truncate">{lead.name}</h3>
                   <div className="flex space-x-2">
                     <span
                       className={`text-xs px-2 py-1 rounded-full ${
                         meetingIsPast
                           ? 'bg-gray-200 text-gray-500'
+                          : meetingIsFarFuture
+                          ? 'bg-blue-200 text-blue-700'
                           : 'bg-primary/10 text-primary'
                       }`}
                     >
-                      {meetingIsPast ? 'Completed' : 'Scheduled'}
+                      {meetingIsPast ? 'Completed' : meetingIsFarFuture ? 'Upcoming' : 'Scheduled'}
                     </span>
                   </div>
                 </div>

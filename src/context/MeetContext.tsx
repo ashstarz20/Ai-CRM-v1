@@ -22,6 +22,7 @@ interface MeetContextType {
   addToMeet: (lead: Omit<ScheduledLead, 'id'>) => void;
   removeFromMeet: (id: string) => void;
   updateMeet: (id: string, updates: Partial<Omit<ScheduledLead, 'id'>>) => void;
+  rescheduleMeet: (id: string, newDate: string, newTime: string) => void;
 }
 
 const MeetContext = createContext<MeetContextType | undefined>(undefined);
@@ -32,25 +33,22 @@ export const MeetProvider = ({ children }: { children: ReactNode }) => {
   const [scheduledLeads, setScheduledLeads] = useState<ScheduledLead[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
+  // Load from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        const validLeads = parsed.map((lead: any) => ({
-          ...lead,
-          id: lead.id || uuidv4()
-        }));
-        setScheduledLeads(validLeads);
+        setScheduledLeads(parsed);
       }
     } catch (error) {
       console.error('Failed to load scheduled leads:', error);
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
     } finally {
       setIsLoaded(true);
     }
   }, []);
 
+  // Save to localStorage whenever scheduledLeads changes
   useEffect(() => {
     if (isLoaded) {
       try {
@@ -90,12 +88,27 @@ export const MeetProvider = ({ children }: { children: ReactNode }) => {
     );
   }, []);
 
+  const rescheduleMeet = useCallback((
+    id: string,
+    newDate: string,
+    newTime: string
+  ) => {
+    setScheduledLeads(prev => 
+      prev.map(lead => 
+        lead.id === id 
+          ? { ...lead, date: newDate, time: newTime } 
+          : lead
+      )
+    );
+  }, []);
+
   return (
     <MeetContext.Provider value={{ 
       scheduledLeads, 
       addToMeet,
       removeFromMeet,
-      updateMeet
+      updateMeet,
+      rescheduleMeet
     }}>
       {children}
     </MeetContext.Provider>

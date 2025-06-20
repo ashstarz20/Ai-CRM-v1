@@ -1,10 +1,11 @@
 // ✅ src/pages/Chats.tsx
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
   getChatsByAccount,
   getMessagesByChat,
   addMessageToChat,
   getChatDocument,
+  deleteAllMessagesInChat,
   Chat,
   Message,
   Timestamp,
@@ -12,9 +13,9 @@ import {
   subscribeMessages
 } from "../services/firebase";
 import { updateDoc } from "firebase/firestore";
-import { format } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
+import { FaFilePdf, FaFileAlt } from "react-icons/fa";
 
-// Helper function to get initials from name
 const getInitials = (name: string) => {
   if (!name) return "?";
   const names = name.split(" ");
@@ -25,362 +26,541 @@ const getInitials = (name: string) => {
   return initials;
 };
 
+const Spinner = ({ className }: { className: string }) => (
+  <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
+);
+
+const formatFileSize = (bytes: number | undefined): string => {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} bytes`;
+  if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+};
+
 export default function Chats() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selected, setSelected] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [sending, setSending] = useState(false);
+  const [loadingChats, setLoadingChats] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [showContactPanel, setShowContactPanel] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [clearingChat, setClearingChat] = useState(false);
   const accountId = "593329000520625";
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const unsubscribeChatsRef = useRef<() => void>(() => {});
+  const unsubscribeMessagesRef = useRef<() => void>(() => {});
 
-  // Filter chats based on search query
+  const ContactInfoPanel = () => (
+    <div className={`h-full w-80 bg-white border-l border-gray-200 shadow-lg z-30 absolute top-0 right-0 transform transition-transform duration-300 ease-in-out ${showContactPanel ? "translate-x-0" : "translate-x-full"}`}>
+      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-800">Contact Info</h2>
+        <button className="p-2 rounded-full hover:bg-gray-100 transition" onClick={() => setShowContactPanel(false)}>
+          <svg className="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div className="p-6 text-center">
+        <div className="flex items-center justify-center rounded-full w-24 h-24 mx-auto bg-blue-100 text-blue-700 font-bold text-3xl">
+          {getInitials(selected?.contact.name || "")}
+        </div>
+        <h3 className="mt-4 text-xl font-bold text-gray-800">{selected?.contact.name}</h3>
+        <p className="mt-2 text-gray-600">{selected?.contact.phone}</p>
+      </div>
+    </div>
+  );
+
+  // Sort chats with unread messages first, then by last message timestamp
+  const sortedChats = useMemo(() => {
+    return [...chats].sort((a, b) => {
+      // Prioritize chats with unread messages
+      if (a.unreadCount && !b.unreadCount) return -1;
+      if (!a.unreadCount && b.unreadCount) return 1;
+      
+      // Then sort by last message timestamp (newest first)
+      const aTime = a.lastMessage?.timestamp?.toMillis() || 0;
+      const bTime = b.lastMessage?.timestamp?.toMillis() || 0;
+      return bTime - aTime;
+    });
+  }, [chats]);
+
   const filteredChats = useMemo(() => {
-    if (!searchQuery) return chats;
+    if (!searchQuery) return sortedChats;
     const query = searchQuery.toLowerCase();
-    return chats.filter(chat => 
+    return sortedChats.filter(chat => 
       chat.contact.name.toLowerCase().includes(query) || 
       chat.contact.phone.includes(query)
     );
-  }, [chats, searchQuery]);
+  }, [sortedChats, searchQuery]);
 
-  // Scroll to bottom of messages
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Fetch initial chats and set up real-time updates
-  useEffect(() => {
-    const fetchInitialChats = async () => {
-      const initialChats = await getChatsByAccount(accountId);
-      setChats(initialChats);
-      if (initialChats.length > 0 && !selected) {
-        setSelected(initialChats[0]);
-      }
-    };
-    
-    fetchInitialChats();
-    
-    const unsubscribe = subscribeChats(accountId, (updatedChats) => {
-      setChats(updatedChats);
-      
-      // Update selected chat if it exists in the updated list
-      if (selected) {
-        const updatedSelected = updatedChats.find(c => c.id === selected.id);
-        if (updatedSelected) {
-          setSelected(updatedSelected);
-        }
-      }
-    });
-    
-    return unsubscribe;
   }, []);
 
-  // Subscribe to messages when a chat is selected
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAndSubscribeChats = async () => {
+      try {
+        if (unsubscribeChatsRef.current) unsubscribeChatsRef.current();
+        const initialChats = await getChatsByAccount(accountId);
+        if (!isMounted) return;
+        setChats(initialChats);
+        if (initialChats.length > 0) setSelected(initialChats[0]);
+        unsubscribeChatsRef.current = subscribeChats(accountId, updatedChats => {
+          if (!isMounted) return;
+          setChats(updatedChats);
+          setSelected(prev => (prev ? updatedChats.find(c => c.id === prev.id) || prev : prev));
+        });
+      } catch (err) {
+        console.error("Error fetching chats:", err);
+      } finally {
+        if (isMounted) setLoadingChats(false);
+      }
+    };
+    fetchAndSubscribeChats();
+    return () => {
+      isMounted = false;
+      if (unsubscribeChatsRef.current) unsubscribeChatsRef.current();
+    };
+  }, []);
+
   useEffect(() => {
     if (!selected) return;
-    
-    // Reset unread count
-    updateDoc(getChatDocument(accountId, selected.id), { unreadCount: 0 });
-    
-    // Fetch initial messages
-    const fetchInitialMessages = async () => {
-      const msgs = await getMessagesByChat(accountId, selected.id);
-      setMessages(msgs);
+    let isMounted = true;
+    setLoadingMessages(true);
+    const fetchAndSubscribeMessages = async () => {
+      try {
+        if (unsubscribeMessagesRef.current) unsubscribeMessagesRef.current();
+        // Reset unread count when chat is selected
+        await updateDoc(getChatDocument(accountId, selected.id), { unreadCount: 0 });
+        const msgs = await getMessagesByChat(accountId, selected.id);
+        if (!isMounted) return;
+        setMessages(msgs);
+        unsubscribeMessagesRef.current = subscribeMessages(accountId, selected.id, newMsgs => {
+          if (!isMounted) return;
+          setMessages(newMsgs);
+        });
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+      } finally {
+        if (isMounted) setLoadingMessages(false);
+      }
     };
-    fetchInitialMessages();
-    
-    // Set up real-time message updates
-    const unsubscribe = subscribeMessages(accountId, selected.id, (msgs) => {
-      setMessages(msgs);
-    });
-    
-    return unsubscribe;
+    fetchAndSubscribeMessages();
+    return () => {
+      isMounted = false;
+      if (unsubscribeMessagesRef.current) unsubscribeMessagesRef.current();
+    };
   }, [selected]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
-  // Send message function
   const send = async () => {
-    if (!selected || !draft.trim()) return;
-    
-    // Create temporary message for instant UI update
-    const tempMsg: Message = {
-      id: `temp-${Date.now()}`,
+    if (!selected || !draft.trim() || sending) return;
+    setSending(true);
+    const msg: Omit<Message, "id"> = {
       body: draft.trim(),
       timestamp: Timestamp.fromDate(new Date()),
       direction: "outgoing",
-      status: "sending",
+      status: "sent",
     };
-    
-    // Update UI immediately
-    setMessages(prev => [...prev, tempMsg]);
     setDraft("");
-    
     try {
-      // Send to Firebase
-      const msg: Omit<Message, 'id'> = {
-        body: draft.trim(),
-        timestamp: Timestamp.fromDate(new Date()),
-        direction: "outgoing",
-        status: "sent",
-      };
-      
       await addMessageToChat(accountId, selected.id, msg);
       await updateDoc(getChatDocument(accountId, selected.id), {
         lastMessage: {
           body: msg.body,
-          timestamp: msg.timestamp
+          timestamp: msg.timestamp,
         },
         unreadCount: 0,
       });
-      
-      // Remove temp message and add final message
-      const newMessageId = `sent-${Date.now()}`;
-      setMessages(prev => [
-        ...prev.filter(m => m.id !== tempMsg.id), 
-        { ...msg, id: newMessageId }
-      ]);
-      
-    } catch (error) {
-      // Update message status if sending fails
-      setMessages(prev => prev.map(m => 
-        m.id === tempMsg.id ? {...m, status: 'failed'} : m
-      ));
-      console.error("Error sending message:", error);
+    } catch (err) {
+      console.error("Sending message failed:", err);
+    } finally {
+      setSending(false);
     }
   };
 
-  // Format timestamp
-  const fmtTime = (t?: Timestamp) => t ? format(t.toDate(), "hh:mm a") : "";
-  const fmtDate = (t?: Timestamp) => t ? format(t.toDate(), "MMM d, yyyy") : "";
+  const clearChat = async () => {
+    if (!selected || clearingChat) return;
+    setClearingChat(true);
+    try {
+      await deleteAllMessagesInChat(accountId, selected.id);
+      await updateDoc(getChatDocument(accountId, selected.id), {
+        lastMessage: null,
+        unreadCount: 0,
+      });
+      setMessages([]);
+    } catch (err) {
+      console.error("Error clearing chat:", err);
+    } finally {
+      setClearingChat(false);
+      setShowMenu(false);
+    }
+  };
 
-  // Group messages by date
-  const groupedMessages = () => {
-    const groups: {[key: string]: Message[]} = {};
-    
+  const fmtTime = (t?: Timestamp) => t ? format(t.toDate(), "hh:mm a") : "";
+  const fmtDate = (t?: Timestamp) => {
+    if (!t) return "";
+    const d = t.toDate();
+    if (isToday(d)) return "Today";
+    if (isYesterday(d)) return "Yesterday";
+    return format(d, "MMM d, yyyy");
+  };
+
+  const groupedMessages = useMemo(() => {
+    const groups: { [key: string]: Message[] } = {};
     messages.forEach(msg => {
       const date = fmtDate(msg.timestamp);
       if (!groups[date]) groups[date] = [];
       groups[date].push(msg);
     });
-    
     return groups;
+  }, [messages]);
+
+  // Render media content based on type
+  const renderMedia = (m: Message) => {
+    if (!m.media) return null;
+    
+    switch (m.media.type) {
+      case 'image':
+        return (
+          <div className="mb-2">
+            <img 
+              src={m.media.url} 
+              alt={m.media.name || "Image"} 
+              className="max-w-full max-h-48 rounded-lg object-contain bg-gray-100"
+            />
+          </div>
+        );
+        
+      case 'video':
+        return (
+          <div className="mb-2">
+            <video 
+              src={m.media.url} 
+              controls 
+              className="max-w-full max-h-48 rounded-lg bg-black"
+            >
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        );
+        
+      case 'pdf':
+      case 'document':
+        return (
+          <a 
+            href={m.media.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex items-center p-3 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
+          >
+            {m.media.type === 'pdf' ? (
+              <FaFilePdf className="text-red-500 text-xl mr-2" />
+            ) : (
+              <FaFileAlt className="text-blue-500 text-xl mr-2" />
+            )}
+            <div>
+              <div className="text-sm font-medium truncate max-w-xs">
+                {m.media.name || (m.media.type === 'pdf' ? "Document.pdf" : "File.doc")}
+              </div>
+              {m.media.size && (
+                <div className="text-xs text-gray-500">
+                  {formatFileSize(m.media.size)}
+                </div>
+              )}
+            </div>
+          </a>
+        );
+        
+      case 'audio':
+        return (
+          <div className="mb-2">
+            <audio 
+              src={m.media.url} 
+              controls 
+              className="w-full"
+            />
+          </div>
+        );
+        
+      default:
+        return (
+          <a 
+            href={m.media.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-block px-3 py-2 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
+          >
+            Download file
+          </a>
+        );
+    }
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Chat List */}
+    <div className="flex h-[calc(90vh-4rem)] overflow-hidden relative bg-gray-50">
+      {/* Left sidebar - Chat list */}
       <div className="w-80 flex flex-col border-r border-gray-200 bg-white">
-        <div className="p-4 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-800">Chats</h1>
-          <div className="mt-2 relative">
-            <input
-              type="text"
-              placeholder="Search chats..."
-              className="w-full px-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <svg 
-              className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+        <div className="sticky top-0 z-20 bg-white border-b px-4 py-3">
+          <input
+            type="text"
+            className="w-full px-4 py-2 bg-gray-100 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            placeholder="Search chats..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="flex-1 overflow-y-auto">
-          {filteredChats.map(c => (
-            <div
-              key={c.id}
-              onClick={() => setSelected(c)}
-              className={`p-4 cursor-pointer transition flex items-start ${
-                selected?.id === c.id ? "bg-blue-50" : "hover:bg-gray-50"
-              }`}
-            >
-              <div className="flex items-center justify-center rounded-full w-12 h-12 flex-shrink-0 bg-blue-100 text-blue-700 font-bold">
-                {getInitials(c.contact.name)}
-              </div>
-              <div className="ml-3 flex-1 min-w-0">
-                <div className="flex justify-between">
-                  <div className="font-semibold text-gray-800 truncate">{c.contact.name}</div>
+          {loadingChats ? (
+            <div className="flex justify-center items-center h-full">
+              <Spinner className="h-7 w-7 text-blue-500" />
+            </div>
+          ) : filteredChats.length > 0 ? (
+            filteredChats.map(c => (
+              <div
+                key={c.id}
+                onClick={() => setSelected(c)}
+                className={`p-3 flex items-start cursor-pointer transition ${
+                  selected?.id === c.id 
+                    ? "bg-blue-50 border-l-2 border-blue-500" 
+                    : "hover:bg-gray-50"
+                }`}
+              >
+                <div className="w-9 h-9 flex-shrink-0 bg-blue-100 text-blue-700 rounded-full flex items-center justify-center font-bold">
+                  {getInitials(c.contact.name)}
+                </div>
+                <div className="ml-3 min-w-0 flex-1">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center min-w-0 flex-1">
+                      <div className={`${c.unreadCount ? 'font-bold' : 'font-semibold'} text-gray-800 truncate text-sm`}>
+                        {c.contact.name}
+                      </div>
+                      {c.unreadCount && c.unreadCount > 0 && (
+                        <span className="bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center ml-2 flex-shrink-0">
+                          {c.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    {c.lastMessage && (
+                      <div className="text-xs text-gray-400 whitespace-nowrap ml-2 flex-shrink-0">
+                        {fmtTime(c.lastMessage.timestamp)}
+                      </div>
+                    )}
+                  </div>
                   {c.lastMessage && (
-                    <div className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                      {fmtTime(c.lastMessage.timestamp)}
+                    <div className={`text-xs truncate mt-1 ${c.unreadCount ? 'font-semibold text-gray-800' : 'text-gray-500'}`}>
+                      {c.lastMessage.body}
                     </div>
                   )}
                 </div>
-                <div className="text-sm text-gray-600 truncate">{c.contact.phone}</div>
-                {c.lastMessage && (
-                  <div className="text-sm text-gray-500 truncate mt-1">
-                    {c.lastMessage.body}
-                  </div>
-                )}
-                {c.unreadCount && c.unreadCount > 0 ? (
-                  <div className="mt-1">
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-blue-500 rounded-full">
-                      {c.unreadCount}
-                    </span>
-                  </div>
-                ) : null}
               </div>
-            </div>
-          ))}
-          {filteredChats.length === 0 && (
-            <div className="p-4 text-center text-gray-500">
+            ))
+          ) : (
+            <div className="text-xs text-gray-500 p-3 text-center">
               {searchQuery ? "No chats match your search" : "No chats available"}
             </div>
           )}
         </div>
       </div>
 
-      {/* Chat Panel */}
-      <div className="flex flex-col flex-1">
+      {/* Main chat area */}
+      <div className={`flex-1 flex flex-col relative transition-all duration-300 ${showContactPanel ? "mr-80" : ""}`}>
         {selected ? (
           <>
-            {/* Header */}
-            <div className="p-4 border-b border-gray-200 bg-white flex items-center">
-              <div className="flex items-center justify-center rounded-full w-12 h-12 flex-shrink-0 bg-blue-100 text-blue-700 font-bold">
+            {/* Contact header - fixed top */}
+            <div className="p-2.5 border-b bg-white flex items-center sticky top-0 z-20">
+              <div className="w-9 h-9 bg-blue-100 text-blue-700 rounded-full flex justify-center items-center font-bold">
                 {getInitials(selected.contact.name)}
               </div>
-              <div className="ml-3">
-                <div className="font-bold text-lg text-gray-800">{selected.contact.name}</div>
-                <div className="text-sm text-gray-600">Online</div>
-              </div>
-              <div className="ml-auto flex space-x-2">
-                <button className="p-2 rounded-full hover:bg-gray-100">
-                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
-                </button>
-                <button className="p-2 rounded-full hover:bg-gray-100">
-                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </button>
-                <button className="p-2 rounded-full hover:bg-gray-100">
-                  <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div 
-              ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-gray-50 to-gray-100"
-            >
-              {Object.entries(groupedMessages()).map(([date, dateMessages]) => (
-                <div key={date}>
-                  <div className="flex justify-center my-4">
-                    <div className="px-3 py-1 bg-gray-200 text-gray-600 text-sm rounded-full">
-                      {date}
-                    </div>
-                  </div>
-                  {dateMessages.map(m => (
-                    <div
-                      key={m.id}
-                      className={`flex mb-4 ${
-                        m.direction === "outgoing" ? "justify-end" : "justify-start"
-                      }`}
-                    >
-                      <div
-                        className={`max-w-md rounded-2xl px-4 py-2 ${
-                          m.direction === "outgoing"
-                            ? "bg-blue-500 text-white rounded-br-none"
-                            : "bg-white text-gray-800 rounded-bl-none border border-gray-200"
-                        }`}
-                      >
-                        <div>{m.body ?? <i className="opacity-70">[No content]</i>}</div>
-                        <div className={`text-xs mt-1 flex justify-end ${
-                          m.direction === "outgoing" ? "text-blue-100" : "text-gray-500"
-                        }`}>
-                          {fmtTime(m.timestamp)}
-                          {m.direction === "outgoing" && m.status && m.status !== "sending" && (
-                            <span className="ml-1">
-                              {m.status === "sent" ? "✓" : 
-                               m.status === "delivered" ? "✓✓" : 
-                               m.status === "read" ? "✓✓ (Read)" : ""}
-                            </span>
-                          )}
-                          {m.direction === "outgoing" && m.status === "sending" && (
-                            <span className="ml-1 animate-pulse">Sending...</span>
-                          )}
-                          {m.direction === "outgoing" && m.status === "failed" && (
-                            <span className="ml-1 text-red-300">Failed</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+              <div
+                className="ml-2.5 flex-1 min-w-0 cursor-pointer"
+                onClick={() => setShowContactPanel(true)}
+              >
+                <div className="font-bold text-gray-800 hover:text-blue-600 truncate text-sm">
+                  {selected.contact.name}
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input Area */}
-            <div className="p-4 border-t border-gray-200 bg-white">
-              <div className="flex items-center">
-                <button className="p-2 text-gray-500 hover:text-gray-700">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                </button>
-                <div className="flex-1 mx-2">
-                  <input
-                    className="w-full border border-gray-300 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={e => e.key === "Enter" && send()}
-                    placeholder="Type your message..."
-                  />
+                <div className="text-xs text-gray-500 flex items-center mt-0.5">
+                  <span className="w-2 h-2 bg-green-500 rounded-full mr-1.5"></span>
+                  Online
                 </div>
+              </div>
+              
+              {/* Three dots menu */}
+              <div className="relative" ref={menuRef}>
                 <button 
-                  onClick={send}
-                  disabled={!draft.trim()}
-                  className={`p-3 rounded-full ${
-                    draft.trim() 
-                      ? "bg-blue-500 hover:bg-blue-600" 
-                      : "bg-gray-200 cursor-not-allowed"
-                  }`}
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-1 rounded-full hover:bg-gray-100 transition"
                 >
                   <svg 
-                    className="h-5 w-5 text-white" 
+                    className="h-5 w-5 text-gray-500" 
                     fill="none" 
                     viewBox="0 0 24 24" 
                     stroke="currentColor"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" 
+                    />
                   </svg>
+                </button>
+                
+                {showMenu && (
+                  <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg py-1 z-30">
+                    <button
+                      onClick={clearChat}
+                      disabled={clearingChat}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
+                    >
+                      {clearingChat ? (
+                        <>
+                          <Spinner className="h-4 w-4 text-blue-500 mr-2" />
+                          Clearing...
+                        </>
+                      ) : (
+                        "Clear chat"
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Messages area */}
+            <div className="flex-1 overflow-y-auto p-3 bg-gray-50">
+              {loadingMessages ? (
+                <div className="flex justify-center items-center h-full">
+                  <Spinner className="h-8 w-8 text-blue-500" />
+                </div>
+              ) : Object.keys(groupedMessages).length > 0 ? (
+                Object.entries(groupedMessages).map(([date, msgs]) => (
+                  <div key={date}>
+                    <div className="flex justify-center my-4">
+                      <div className="px-2.5 py-1 bg-gray-200 text-gray-600 text-xs rounded-full">
+                        {date}
+                      </div>
+                    </div>
+                    {msgs.map(m => (
+                      <div
+                        key={m.id}
+                        className={`flex mb-2.5 ${m.direction === "outgoing" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[75%] rounded-lg px-3 py-2 ${
+                            m.direction === "outgoing" 
+                              ? "bg-blue-500 text-white rounded-br-none" 
+                              : "bg-white text-gray-800 rounded-bl-none border border-gray-200"
+                          }`}
+                        >
+                          {/* Render media if exists */}
+                          {m.media && renderMedia(m)}
+                          
+                          {/* Message body */}
+                          {m.body && <div className="text-sm">{m.body}</div>}
+                          
+                          {/* Timestamp */}
+                          <div className="text-[0.65rem] mt-1 flex justify-end opacity-70">
+                            {fmtTime(m.timestamp)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              ) : (
+                <div className="flex justify-center items-center h-full text-gray-500 text-sm">
+                  No messages yet. Start the conversation!
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Message input - fixed bottom */}
+            <div className="p-2.5 border-t bg-white sticky bottom-0 z-20">
+              <div className="flex items-center">
+                <input
+                  className="flex-1 border border-gray-300 rounded-full px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !sending && send()}
+                  placeholder="Type your message..."
+                  disabled={sending}
+                />
+                <button
+                  onClick={send}
+                  disabled={!draft.trim() || sending}
+                  className={`ml-2 p-2 rounded-full transition-all ${
+                    draft.trim() && !sending 
+                      ? "bg-blue-500 hover:bg-blue-600" 
+                      : "bg-gray-200 cursor-not-allowed"
+                  }`}
+                >
+                  {sending ? (
+                    <Spinner className="h-4 w-4 text-white" />
+                  ) : (
+                    <svg 
+                      className="h-4 w-4 text-white" 
+                      fill="none" 
+                      viewBox="0 0 24 24" 
+                      stroke="currentColor"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" 
+                      />
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center bg-gray-50">
-            <div className="max-w-md">
-              <div className="flex items-center justify-center rounded-full w-16 h-16 mx-auto bg-blue-100 text-blue-700 font-bold text-xl">
-                ?
+          <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-4 text-sm">
+            {loadingChats ? (
+              <div className="flex items-center">
+                <Spinner className="h-4 w-4 text-blue-500 mr-2" />
+                Loading chats...
               </div>
-              <h2 className="mt-4 text-xl font-bold text-gray-800">No chat selected</h2>
-              <p className="mt-2 text-gray-600">
-                Select a chat from the list to start messaging, or start a new conversation
-              </p>
-              <button className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition">
-                Start New Chat
-              </button>
-            </div>
+            ) : (
+              <>
+                <div className="mb-1">No chat selected</div>
+                <p className="text-center">
+                  Select a conversation from the list
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {/* Contact info panel */}
+      {selected && <ContactInfoPanel />}
     </div>
   );
 }

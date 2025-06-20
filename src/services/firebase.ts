@@ -9,8 +9,11 @@ import {
   doc,
   query,
   orderBy,
+  limit,
   Timestamp,
   onSnapshot,
+  serverTimestamp,
+  writeBatch
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import app from "../config/firebase";
@@ -50,7 +53,55 @@ export interface Message {
   timestamp: Timestamp;
   direction: "incoming" | "outgoing";
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
+  // New media fields
+  media?: {
+    type: 'image' | 'video' | 'document' | 'pdf' | 'audio';
+    url: string;
+    name?: string;
+    size?: number;
+  };
 }
+
+const extractMessageBody = (data: any): string => {
+  if (data.body) return data.body;
+  if (data.text?.body) return data.text.body;
+  if (data.interactive?.body?.text) return data.interactive.body.text;
+  if (data.interactive?.header?.text) return data.interactive.header.text;
+  if (Array.isArray(data.interactive?.action?.buttons)) {
+    return data.interactive.action.buttons.map((btn: any) => btn.text).join(", ");
+  }
+  return "[No Content]";
+};
+
+// Helper to determine if message has media
+const extractMedia = (data: any) => {
+  if (data.media) return data.media;
+  if (data.document) return {
+    type: 'document',
+    url: data.document.url,
+    name: data.document.name,
+    size: data.document.size
+  };
+  if (data.image) return {
+    type: 'image',
+    url: data.image.url,
+    name: data.image.name,
+    size: data.image.size
+  };
+  if (data.video) return {
+    type: 'video',
+    url: data.video.url,
+    name: data.video.name,
+    size: data.video.size
+  };
+  if (data.audio) return {
+    type: 'audio',
+    url: data.audio.url,
+    name: data.audio.name,
+    size: data.audio.size
+  };
+  return null;
+};
 
 export const getLeadsCol = () => {
   const auth = getAuth(app);
@@ -119,20 +170,38 @@ export const getChatDocument = (accountId: string, chatId: string) =>
 
 export const getChatsByAccount = async (accountId: string): Promise<Chat[]> => {
   const chatsRef = collection(db, `accounts/${accountId}/discussion`);
-  const snap = await getDocs(chatsRef);
-  return snap.docs.map(d => {
+  const chatSnap = await getDocs(chatsRef);
+
+  const chats: Chat[] = [];
+
+  for (const d of chatSnap.docs) {
     const data = d.data();
-    const name = data.client_name || data.contact?.name || data.name || `+${d.id}`;
-    return {
-      id: d.id,
-      contact: {
-        name,
-        phone: d.id,
-      },
-      lastMessage: data.lastMessage,
+    const chatId = d.id;
+    const name = data.client_name || data.contact?.name || data.name || `+${chatId}`;
+    const contact = { name, phone: chatId };
+
+    const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
+    const msgQuery = query(msgRef, orderBy("timestamp", "desc"), limit(1));
+    const msgSnap = await getDocs(msgQuery);
+
+    let lastMessage;
+    if (!msgSnap.empty) {
+      const msgData = msgSnap.docs[0].data();
+      lastMessage = {
+        body: extractMessageBody(msgData),
+        timestamp: msgData.timestamp as Timestamp,
+      };
+    }
+
+    chats.push({
+      id: chatId,
+      contact,
+      lastMessage,
       unreadCount: data.unreadCount || 0,
-    };
-  });
+    });
+  }
+
+  return chats;
 };
 
 export const getMessagesByChat = async (accountId: string, chatId: string): Promise<Message[]> => {
@@ -142,42 +211,56 @@ export const getMessagesByChat = async (accountId: string, chatId: string): Prom
 
   return snap.docs.map(d => {
     const data = d.data();
-    let body: string | undefined = data.body;
-    if (!body) {
-      if (data.text?.body) {
-        body = data.text.body;
-      } else if (data.interactive?.body?.text) {
-        body = data.interactive.body.text;
-      } else if (data.interactive?.header?.text) {
-        body = data.interactive.header.text;
-      } else if (Array.isArray(data.interactive?.action?.buttons) && data.interactive.action.buttons.length > 0) {
-        body = data.interactive.action.buttons.map((btn: any) => btn.text).join(", ");
-      }
-    }
-
+    const media = extractMedia(data);
+    
     return {
       id: d.id,
-      body: body || "[No Content]",
+      body: extractMessageBody(data),
       timestamp: data.timestamp as Timestamp,
       direction: data.direction || "incoming",
       status: data.status,
+      media: media ? {
+        type: media.type,
+        url: media.url,
+        name: media.name,
+        size: media.size
+      } : undefined
     };
   });
 };
 
 export const subscribeChats = (accountId: string, callback: (chats: Chat[]) => void) => {
   const chatsRef = collection(db, `accounts/${accountId}/discussion`);
-  return onSnapshot(chatsRef, snapshot => {
-    const chats: Chat[] = snapshot.docs.map(d => {
+  return onSnapshot(chatsRef, async snapshot => {
+    const chats: Chat[] = [];
+
+    for (const d of snapshot.docs) {
       const data = d.data();
-      const name = data.client_name || data.contact?.name || data.name || `+${d.id}`;
-      return {
-        id: d.id,
-        contact: { name, phone: d.id },
-        lastMessage: data.lastMessage,
+      const chatId = d.id;
+      const name = data.client_name || data.contact?.name || data.name || `+${chatId}`;
+      const contact = { name, phone: chatId };
+
+      const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
+      const msgQuery = query(msgRef, orderBy("timestamp", "desc"), limit(1));
+      const msgSnap = await getDocs(msgQuery);
+
+      let lastMessage;
+      if (!msgSnap.empty) {
+        const msgData = msgSnap.docs[0].data();
+        lastMessage = {
+          body: extractMessageBody(msgData),
+          timestamp: msgData.timestamp as Timestamp,
+        };
+      }
+
+      chats.push({
+        id: chatId,
+        contact,
+        lastMessage,
         unreadCount: data.unreadCount || 0,
-      };
-    });
+      });
+    }
+
     callback(chats);
   });
 };
@@ -189,31 +272,26 @@ export const subscribeMessages = (
 ) => {
   const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
   const q = query(msgRef, orderBy("timestamp", "asc"));
-  return onSnapshot(q, snapshot => {
-    const msgs: Message[] = snapshot.docs.map(d => {
+  return onSnapshot(q, snapshot =>
+    callback(snapshot.docs.map(d => {
       const data = d.data();
-      let body: string | undefined = data.body;
-      if (!body) {
-        if (data.text?.body) {
-          body = data.text.body;
-        } else if (data.interactive?.body?.text) {
-          body = data.interactive.body.text;
-        } else if (data.interactive?.header?.text) {
-          body = data.interactive.header.text;
-        } else if (Array.isArray(data.interactive?.action?.buttons) && data.interactive.action.buttons.length > 0) {
-          body = data.interactive.action.buttons.map((btn: any) => btn.text).join(", ");
-        }
-      }
+      const media = extractMedia(data);
+      
       return {
         id: d.id,
-        body: body || "[No Content]",
+        body: extractMessageBody(data),
         timestamp: data.timestamp as Timestamp,
         direction: data.direction || "incoming",
         status: data.status,
+        media: media ? {
+          type: media.type,
+          url: media.url,
+          name: media.name,
+          size: media.size
+        } : undefined
       };
-    });
-    callback(msgs);
-  });
+    }))
+  );
 };
 
 export const addMessageToChat = async (
@@ -222,5 +300,28 @@ export const addMessageToChat = async (
   msg: Omit<Message, 'id'>
 ) => {
   const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
-  return addDoc(msgRef, msg);
+  const newDocRef = await addDoc(msgRef, msg);
+
+  await updateDoc(getChatDocument(accountId, chatId), {
+    lastMessage: {
+      body: msg.body,
+      timestamp: msg.timestamp || serverTimestamp(),
+    },
+    unreadCount: 0,
+  });
+
+  return newDocRef;
+};
+
+export const deleteAllMessagesInChat = async (accountId: string, chatId: string) => {
+  const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
+  const q = query(msgRef);
+  const querySnapshot = await getDocs(q);
+  
+  const batch = writeBatch(db);
+  querySnapshot.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+  
+  await batch.commit();
 };

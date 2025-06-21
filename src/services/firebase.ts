@@ -1,4 +1,4 @@
-// ✅ src/services/firebase.ts
+// ✅ OPTIMIZED src/services/firebase.ts
 import {
   getFirestore,
   collection,
@@ -13,7 +13,9 @@ import {
   Timestamp,
   onSnapshot,
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  // where,
+  // getDoc
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import app from "../config/firebase";
@@ -53,7 +55,6 @@ export interface Message {
   timestamp: Timestamp;
   direction: "incoming" | "outgoing";
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
-  // New media fields
   media?: {
     type: 'image' | 'video' | 'document' | 'pdf' | 'audio';
     url: string;
@@ -168,48 +169,88 @@ export const updateLeadByUser = (userPhone: string, id: string, data: Partial<Le
 export const getChatDocument = (accountId: string, chatId: string) =>
   doc(db, `accounts/${accountId}/discussion/${chatId}`);
 
-export const getChatsByAccount = async (accountId: string): Promise<Chat[]> => {
-  const chatsRef = collection(db, `accounts/${accountId}/discussion`);
-  const chatSnap = await getDocs(chatsRef);
+// Bulk fetch last messages for all chats
+const getLastMessages = async (accountId: string, chatIds: string[]) => {
+  if (chatIds.length === 0) return {};
 
-  const chats: Chat[] = [];
+  const lastMessages: Record<string, Message> = {};
+  const batchSize = 10; // Process in batches to avoid Firestore limits
+  const batches = Math.ceil(chatIds.length / batchSize);
 
-  for (const d of chatSnap.docs) {
-    const data = d.data();
-    const chatId = d.id;
-    const name = data.client_name || data.contact?.name || data.name || `+${chatId}`;
-    const contact = { name, phone: chatId };
+  for (let i = 0; i < batches; i++) {
+    const batchIds = chatIds.slice(i * batchSize, (i + 1) * batchSize);
+    const promises = batchIds.map(chatId => {
+      const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
+      const q = query(msgRef, orderBy("timestamp", "desc"), limit(1));
+      return getDocs(q);
+    });
 
-    const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
-    const msgQuery = query(msgRef, orderBy("timestamp", "desc"), limit(1));
-    const msgSnap = await getDocs(msgQuery);
-
-    let lastMessage;
-    if (!msgSnap.empty) {
-      const msgData = msgSnap.docs[0].data();
-      lastMessage = {
-        body: extractMessageBody(msgData),
-        timestamp: msgData.timestamp as Timestamp,
-      };
-    }
-
-    chats.push({
-      id: chatId,
-      contact,
-      lastMessage,
-      unreadCount: data.unreadCount || 0,
+    const results = await Promise.all(promises);
+    
+    results.forEach((snapshot, index) => {
+      const chatId = batchIds[index];
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        const data = doc.data();
+        lastMessages[chatId] = {
+          id: doc.id,
+          body: extractMessageBody(data),
+          timestamp: data.timestamp as Timestamp,
+          direction: data.direction || "incoming",
+          status: data.status,
+          media: extractMedia(data) ? {
+            ...extractMedia(data) as any,
+            type: extractMedia(data)?.type || 'document'
+          } : undefined
+        };
+      }
     });
   }
 
-  return chats;
+  return lastMessages;
 };
 
-export const getMessagesByChat = async (accountId: string, chatId: string): Promise<Message[]> => {
-  const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
-  const q = query(msgRef, orderBy("timestamp", "asc"));
-  const snap = await getDocs(q);
+export const getChatsByAccount = async (accountId: string): Promise<Chat[]> => {
+  try {
+    const chatsRef = collection(db, `accounts/${accountId}/discussion`);
+    const chatSnap = await getDocs(chatsRef);
+    
+    const chatIds = chatSnap.docs.map(d => d.id);
+    const lastMessages = await getLastMessages(accountId, chatIds);
+    
+    return chatSnap.docs.map(d => {
+      const data = d.data();
+      const chatId = d.id;
+      const name = data.client_name || data.contact?.name || data.name || `+${chatId}`;
+      
+      return {
+        id: chatId,
+        contact: { name, phone: chatId },
+        lastMessage: lastMessages[chatId],
+        unreadCount: data.unreadCount || 0,
+      };
+    });
+  } catch (error) {
+    console.error("Error fetching chats:", error);
+    throw error;
+  }
+};
 
-  return snap.docs.map(d => {
+export const getMessagesByChat = async (
+  accountId: string, 
+  chatId: string,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<Message[]> => {
+  const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
+  const q = query(
+    msgRef, 
+    orderBy("timestamp", "desc"),
+    limit(pageSize * page)
+  );
+  
+  const snap = await getDocs(q);
+  const messages = snap.docs.map(d => {
     const data = d.data();
     const media = extractMedia(data);
     
@@ -227,40 +268,31 @@ export const getMessagesByChat = async (accountId: string, chatId: string): Prom
       } : undefined
     };
   });
+
+  // Return messages in ascending order (oldest first)
+  return messages.reverse();
 };
 
 export const subscribeChats = (accountId: string, callback: (chats: Chat[]) => void) => {
   const chatsRef = collection(db, `accounts/${accountId}/discussion`);
-  return onSnapshot(chatsRef, async snapshot => {
-    const chats: Chat[] = [];
-
-    for (const d of snapshot.docs) {
+  
+  return onSnapshot(chatsRef, async (snapshot) => {
+    const chatIds = snapshot.docs.map(d => d.id);
+    const lastMessages = await getLastMessages(accountId, chatIds);
+    
+    const chats = snapshot.docs.map(d => {
       const data = d.data();
       const chatId = d.id;
       const name = data.client_name || data.contact?.name || data.name || `+${chatId}`;
-      const contact = { name, phone: chatId };
-
-      const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
-      const msgQuery = query(msgRef, orderBy("timestamp", "desc"), limit(1));
-      const msgSnap = await getDocs(msgQuery);
-
-      let lastMessage;
-      if (!msgSnap.empty) {
-        const msgData = msgSnap.docs[0].data();
-        lastMessage = {
-          body: extractMessageBody(msgData),
-          timestamp: msgData.timestamp as Timestamp,
-        };
-      }
-
-      chats.push({
+      
+      return {
         id: chatId,
-        contact,
-        lastMessage,
+        contact: { name, phone: chatId },
+        lastMessage: lastMessages[chatId],
         unreadCount: data.unreadCount || 0,
-      });
-    }
-
+      };
+    });
+    
     callback(chats);
   });
 };
@@ -272,7 +304,8 @@ export const subscribeMessages = (
 ) => {
   const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
   const q = query(msgRef, orderBy("timestamp", "asc"));
-  return onSnapshot(q, snapshot =>
+  
+  return onSnapshot(q, snapshot => {
     callback(snapshot.docs.map(d => {
       const data = d.data();
       const media = extractMedia(data);
@@ -290,8 +323,8 @@ export const subscribeMessages = (
           size: media.size
         } : undefined
       };
-    }))
-  );
+    }));
+  });
 };
 
 export const addMessageToChat = async (

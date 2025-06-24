@@ -1,8 +1,8 @@
-// ✅ OPTIMIZED src/services/firebase.ts
 import {
   getFirestore,
   collection,
   getDocs,
+  getDoc,
   setDoc,
   addDoc,
   updateDoc,
@@ -14,14 +14,17 @@ import {
   onSnapshot,
   serverTimestamp,
   writeBatch,
-  // where,
-  // getDoc
+  increment
 } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
 import app from "../config/firebase";
 
 export const db = getFirestore(app);
+export const storage = getStorage(app);
 export { Timestamp };
+
+export type MediaType = 'image' | 'video' | 'document' | 'pdf' | 'audio' | 'contact';
 
 export interface Lead {
   id?: string;
@@ -51,21 +54,26 @@ export interface Chat {
 
 export interface Message {
   id: string;
-  body: string;
+  from: string;
+  text: {
+    body: string;
+  };
   timestamp: Timestamp;
+  type: string;
   direction: "incoming" | "outgoing";
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
   media?: {
-    type: 'image' | 'video' | 'document' | 'pdf' | 'audio';
-    url: string;
+    type: MediaType;
+    url?: string;
+    id?: string; // <-- Add this line to support WhatsApp media IDs
     name?: string;
     size?: number;
   };
 }
 
 const extractMessageBody = (data: any): string => {
-  if (data.body) return data.body;
   if (data.text?.body) return data.text.body;
+  if (data.body) return data.body;
   if (data.interactive?.body?.text) return data.interactive.body.text;
   if (data.interactive?.header?.text) return data.interactive.header.text;
   if (Array.isArray(data.interactive?.action?.buttons)) {
@@ -74,7 +82,6 @@ const extractMessageBody = (data: any): string => {
   return "[No Content]";
 };
 
-// Helper to determine if message has media
 const extractMedia = (data: any) => {
   if (data.media) return data.media;
   if (data.document) return {
@@ -102,6 +109,15 @@ const extractMedia = (data: any) => {
     size: data.audio.size
   };
   return null;
+};
+
+// Helper function to get account phone number
+const getAccountPhoneNumber = async (accountId: string): Promise<string> => {
+  const accountDoc = await getDoc(doc(db, `accounts/${accountId}`));
+  if (!accountDoc.exists()) {
+    throw new Error("Account not found");
+  }
+  return accountDoc.data().phoneNumber;
 };
 
 export const getLeadsCol = () => {
@@ -169,54 +185,10 @@ export const updateLeadByUser = (userPhone: string, id: string, data: Partial<Le
 export const getChatDocument = (accountId: string, chatId: string) =>
   doc(db, `accounts/${accountId}/discussion/${chatId}`);
 
-// Bulk fetch last messages for all chats
-const getLastMessages = async (accountId: string, chatIds: string[]) => {
-  if (chatIds.length === 0) return {};
-
-  const lastMessages: Record<string, Message> = {};
-  const batchSize = 10; // Process in batches to avoid Firestore limits
-  const batches = Math.ceil(chatIds.length / batchSize);
-
-  for (let i = 0; i < batches; i++) {
-    const batchIds = chatIds.slice(i * batchSize, (i + 1) * batchSize);
-    const promises = batchIds.map(chatId => {
-      const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
-      const q = query(msgRef, orderBy("timestamp", "desc"), limit(1));
-      return getDocs(q);
-    });
-
-    const results = await Promise.all(promises);
-    
-    results.forEach((snapshot, index) => {
-      const chatId = batchIds[index];
-      if (!snapshot.empty) {
-        const doc = snapshot.docs[0];
-        const data = doc.data();
-        lastMessages[chatId] = {
-          id: doc.id,
-          body: extractMessageBody(data),
-          timestamp: data.timestamp as Timestamp,
-          direction: data.direction || "incoming",
-          status: data.status,
-          media: extractMedia(data) ? {
-            ...extractMedia(data) as any,
-            type: extractMedia(data)?.type || 'document'
-          } : undefined
-        };
-      }
-    });
-  }
-
-  return lastMessages;
-};
-
 export const getChatsByAccount = async (accountId: string): Promise<Chat[]> => {
   try {
     const chatsRef = collection(db, `accounts/${accountId}/discussion`);
     const chatSnap = await getDocs(chatsRef);
-    
-    const chatIds = chatSnap.docs.map(d => d.id);
-    const lastMessages = await getLastMessages(accountId, chatIds);
     
     return chatSnap.docs.map(d => {
       const data = d.data();
@@ -226,7 +198,10 @@ export const getChatsByAccount = async (accountId: string): Promise<Chat[]> => {
       return {
         id: chatId,
         contact: { name, phone: chatId },
-        lastMessage: lastMessages[chatId],
+        lastMessage: data.lastMessage ? {
+          body: data.lastMessage.body,
+          timestamp: data.lastMessage.timestamp,
+        } : undefined,
         unreadCount: data.unreadCount || 0,
       };
     });
@@ -237,49 +212,54 @@ export const getChatsByAccount = async (accountId: string): Promise<Chat[]> => {
 };
 
 export const getMessagesByChat = async (
-  accountId: string, 
+  accountId: string,
   chatId: string,
   page: number = 1,
   pageSize: number = 20
 ): Promise<Message[]> => {
-  const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
-  const q = query(
-    msgRef, 
-    orderBy("timestamp", "desc"),
-    limit(pageSize * page)
-  );
-  
-  const snap = await getDocs(q);
-  const messages = snap.docs.map(d => {
-    const data = d.data();
-    const media = extractMedia(data);
-    
-    return {
-      id: d.id,
-      body: extractMessageBody(data),
-      timestamp: data.timestamp as Timestamp,
-      direction: data.direction || "incoming",
-      status: data.status,
-      media: media ? {
-        type: media.type,
-        url: media.url,
-        name: media.name,
-        size: media.size
-      } : undefined
-    };
-  });
+  try {
+    const accountPhone = await getAccountPhoneNumber(accountId);
+    const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
+    const q = query(
+      msgRef,
+      orderBy("timestamp", "desc"),
+      limit(pageSize * page)
+    );
 
-  // Return messages in ascending order (oldest first)
-  return messages.reverse();
+    const snap = await getDocs(q);
+    const messages = snap.docs.map(d => {
+      const data = d.data();
+      const media = extractMedia(data);
+      const isOutgoing = (data.direction || "incoming") === "outgoing";
+
+      return {
+        id: d.id,
+        from: isOutgoing ? accountPhone : data.from || "",
+        text: { body: extractMessageBody(data) },
+        timestamp: data.timestamp as Timestamp,
+        type: data.type || "text",
+        direction: data.direction || "incoming",
+        status: data.status,
+        media: media ? {
+          type: media.type,
+          url: media.url,
+          name: media.name,
+          size: media.size
+        } : undefined
+      };
+    });
+
+    return messages.reverse();
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    throw error;
+  }
 };
 
 export const subscribeChats = (accountId: string, callback: (chats: Chat[]) => void) => {
   const chatsRef = collection(db, `accounts/${accountId}/discussion`);
   
-  return onSnapshot(chatsRef, async (snapshot) => {
-    const chatIds = snapshot.docs.map(d => d.id);
-    const lastMessages = await getLastMessages(accountId, chatIds);
-    
+  return onSnapshot(chatsRef, (snapshot) => {
     const chats = snapshot.docs.map(d => {
       const data = d.data();
       const chatId = d.id;
@@ -288,7 +268,10 @@ export const subscribeChats = (accountId: string, callback: (chats: Chat[]) => v
       return {
         id: chatId,
         contact: { name, phone: chatId },
-        lastMessage: lastMessages[chatId],
+        lastMessage: data.lastMessage ? {
+          body: data.lastMessage.body,
+          timestamp: data.lastMessage.timestamp,
+        } : undefined,
         unreadCount: data.unreadCount || 0,
       };
     });
@@ -305,25 +288,35 @@ export const subscribeMessages = (
   const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
   const q = query(msgRef, orderBy("timestamp", "asc"));
   
-  return onSnapshot(q, snapshot => {
-    callback(snapshot.docs.map(d => {
-      const data = d.data();
-      const media = extractMedia(data);
+  return onSnapshot(q, async (snapshot) => {
+    try {
+      const accountPhone = await getAccountPhoneNumber(accountId);
+      const messages = snapshot.docs.map(d => {
+        const data = d.data();
+        const media = extractMedia(data);
+        const isOutgoing = (data.direction || "incoming") === "outgoing";
+        
+        return {
+          id: d.id,
+          from: isOutgoing ? accountPhone : data.from || "",
+          text: { body: extractMessageBody(data) },
+          timestamp: data.timestamp as Timestamp,
+          type: data.type || "text",
+          direction: data.direction || "incoming",
+          status: data.status,
+          media: media ? {
+            type: media.type,
+            url: media.url,
+            name: media.name,
+            size: media.size
+          } : undefined,
+        };
+      });
       
-      return {
-        id: d.id,
-        body: extractMessageBody(data),
-        timestamp: data.timestamp as Timestamp,
-        direction: data.direction || "incoming",
-        status: data.status,
-        media: media ? {
-          type: media.type,
-          url: media.url,
-          name: media.name,
-          size: media.size
-        } : undefined
-      };
-    }));
+      callback(messages);
+    } catch (error) {
+      console.error("Error in message subscription:", error);
+    }
   });
 };
 
@@ -332,18 +325,33 @@ export const addMessageToChat = async (
   chatId: string,
   msg: Omit<Message, 'id'>
 ) => {
-  const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
-  const newDocRef = await addDoc(msgRef, msg);
+  try {
+    const accountPhone = await getAccountPhoneNumber(accountId);
+    
+    const msgRef = collection(db, `accounts/${accountId}/discussion/${chatId}/messages`);
+    const newDocRef = await addDoc(msgRef, {
+      ...msg,
+      from: msg.direction === "outgoing" ? accountPhone : msg.from
+    });
 
-  await updateDoc(getChatDocument(accountId, chatId), {
-    lastMessage: {
-      body: msg.body,
-      timestamp: msg.timestamp || serverTimestamp(),
-    },
-    unreadCount: 0,
-  });
+    // Create last message content
+    const lastMessageContent = msg.text.body || 
+      (msg.media ? `Sent a ${msg.media.type}` : 'Sent a file');
+    
+    // Update chat document for both incoming and outgoing messages
+    await updateDoc(getChatDocument(accountId, chatId), {
+      lastMessage: {
+        body: lastMessageContent,
+        timestamp: msg.timestamp || serverTimestamp(),
+      },
+      ...(msg.direction === "incoming" && { unreadCount: increment(1) })
+    });
 
-  return newDocRef;
+    return newDocRef;
+  } catch (error) {
+    console.error("Error adding message:", error);
+    throw error;
+  }
 };
 
 export const deleteAllMessagesInChat = async (accountId: string, chatId: string) => {
@@ -357,4 +365,121 @@ export const deleteAllMessagesInChat = async (accountId: string, chatId: string)
   });
   
   await batch.commit();
+};
+
+// export const uploadFile = async (file: File, path: string): Promise<string> => {
+//   try {
+//     const storageRef = ref(storage, path);
+//     const snapshot = await uploadBytes(storageRef, file);
+//     return getDownloadURL(snapshot.ref);
+//   } catch (error) {
+//     console.error("Error uploading file:", error);
+//     throw error;
+//   }
+// };
+
+
+export const uploadImageToWhatsApp = async (
+  phoneNumberId: string,
+  file: File,
+  type: string = "image/jpeg"
+): Promise<string> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("type", type);
+  formData.append("messaging_product", "whatsapp");
+
+  const res = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/media`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${import.meta.env.VITE_WHATSAPP_TOKEN}`
+    },
+    body: formData
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    console.error("Upload failed:", data);
+    throw new Error(data.error?.message || "Image upload failed");
+  }
+
+   console.log("Uploaded media ID:", data.id);
+
+  return data.id;
+};
+
+// Updated sendWhatsAppMessage to support media.id
+export const sendWhatsAppMessage = async (
+  phoneNumberId: string,
+  to: string,
+  message?: string,
+  media?: {
+    type: 'image' | 'video' | 'document' | 'audio';
+    url?: string;
+    id?: string;
+    caption?: string;
+    filename?: string;
+  }
+) => {
+  try {
+    const payload: any = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: to,
+    };
+
+    if (media) {
+      payload.type = media.type;
+      payload[media.type] = media.id
+        ? { id: media.id, ...(media.caption && { caption: media.caption }) }
+        : {
+            link: media.url,
+            ...(media.caption && { caption: media.caption }),
+            ...(media.filename && { filename: media.filename })
+          };
+    } else if (message) {
+      payload.type = "text";
+      payload.text = { body: message };
+    } else {
+      throw new Error("Either message or media must be provided");
+    }
+
+    const response: Response = await fetch(
+      `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${import.meta.env.VITE_WHATSAPP_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!response.ok) {
+      let errorData: any;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = {};
+      }
+      throw new Error(`WhatsApp API error: ${response.status} - ${errorData?.error?.message || 'Unknown error'}`);
+    }
+
+    const responseData = await response.json();
+    return {
+      id: responseData?.messages?.[0]?.id,
+      ...responseData
+    };
+  } catch (error: unknown) {
+    console.error("Failed to send WhatsApp message:", error);
+    throw error;
+  }
+};
+
+export const getClientPhoneFromPath = (path: string): string | null => {
+  // Allow + and digits for phone/chat id
+  const match = path.match(/\/accounts\/\d+\/discussion\/([\d+]+)/);
+  return match ? match[1] : null;
 };

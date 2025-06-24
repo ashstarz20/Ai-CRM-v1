@@ -140,3 +140,14 @@
 body {
   @apply bg-background text-foreground min-h-screen transition-colors duration-300 antialiased;
 }
+
+
+/* Chats */
+@keyframes highlight {
+  0% { background-color: #ffffcc; }
+  100% { background-color: #ffffff; }
+}
+
+.animate-highlight {
+  animation: highlight 5s forwards;
+}

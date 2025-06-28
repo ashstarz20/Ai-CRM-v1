@@ -549,6 +549,30 @@ export const subscribeMessages = (
   });
 };
 
+// export const updateChatDocument = async (
+//   accountId: string,
+//   chatId: string,
+//   message: Message
+// ) => {
+//   const chatRef = doc(db, `accounts/${accountId}/discussion/${chatId}`);
+
+//   const lastMessageContent = extractMessageBody(message) ||
+//     (message.image ? "Sent an image" :
+//      message.video ? "Sent a video" :
+//      message.document ? "Sent a document" :
+//      message.audio ? "Sent an audio" : "Sent a file");
+
+//   await updateDoc(chatRef, {
+//     lastMessage: {
+//       body: lastMessageContent,
+//       timestamp: message.timestamp || serverTimestamp(),
+//     },
+//     ...(message.direction === "incoming" && {
+//       unreadCount: increment(1)
+//     }),
+//   });
+// };
+
 // Update the updateChatDocument function
 export const updateChatDocument = async (
   accountId: string,

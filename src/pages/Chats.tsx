@@ -107,6 +107,7 @@ const SkeletonLoader = ({ count = 5 }: { count?: number }) => (
 type MediaData = {
   url: string;
   type: "image" | "video" | "document" | "audio";
+  id?: string;
   name?: string;
   size?: number;
   mime_type?: string;
@@ -119,13 +120,23 @@ export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!mediaData?.url) return;
+    let objectUrl: string | null = null;
 
     const loadMedia = async () => {
       try {
         setLoading(true);
-        const blob = await fetchMedia(mediaData.url);
-        const objectUrl = URL.createObjectURL(blob);
+
+        let url = mediaData.url;
+
+        if (mediaData.type === "image" && mediaData.id) {
+          const meta = await fetchMediaById(mediaData.id); // assume it returns { url }
+          url = meta.url;
+        }
+
+        if (!url) throw new Error("No media URL found");
+
+        const blob = await fetchMedia(url);
+        objectUrl = URL.createObjectURL(blob);
         setBlobUrl(objectUrl);
       } catch (err) {
         console.error("Error loading media:", err);
@@ -138,11 +149,11 @@ export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
     loadMedia();
 
     return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [mediaData?.url]);
+  }, [mediaData]);
 
   if (!mediaData) return null;
 
@@ -1171,7 +1182,7 @@ export default function Chats() {
                 isSelected={selected?.id === c.id}
                 onSelect={() => {
                   setSelected(c);
-                  
+
                   if (c.unreadCount && c.unreadCount > 0 && accountId) {
                     updateDoc(getChatDocument(accountId, c.id), {
                       unreadCount: 0,

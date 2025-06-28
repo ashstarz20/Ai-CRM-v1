@@ -52,6 +52,15 @@ export interface Chat {
   unreadCount?: number;
 }
 
+export interface Media {
+  id?: string;
+  url?: string;
+  mime_type?: string;
+  sha256?: string;
+  name?: string;
+  size?: number;
+}
+
 export interface Message {
   id: string;
   from: string;
@@ -62,10 +71,37 @@ export interface Message {
   type: string;
   direction: "incoming" | "outgoing";
   status?: "sending" | "sent" | "delivered" | "read" | "failed";
-  media?: {
-    type: MediaType;
-    url?: string;
+  fcmToken?: string;
+  // Media fields
+  image?: {
     id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
+    name?: string;
+    size?: number;
+  };
+  video?: {
+    id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
+    name?: string;
+    size?: number;
+  };
+  document?: {
+    id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
+    name?: string;
+    size?: number;
+  };
+  audio?: {
+    id?: string;
+    url?: string;
+    mime_type?: string;
+    sha256?: string;
     name?: string;
     size?: number;
   };
@@ -87,36 +123,59 @@ const extractMessageBody = (data: unknown): string => {
   return "[No Content]";
 };
 
-const extractMedia = (data: any) => {
+const extractMedia = async (data: any): Promise<any> => {
+  // First check new structure
+  if (data.image) return { type: "image", ...data.image };
+  if (data.video) return { type: "video", ...data.video };
+  if (data.document) return { type: "document", ...data.document };
+  if (data.audio) return { type: "audio", ...data.audio };
+
+  // Then old structure
   if (data.media) return data.media;
-  if (data.document)
+
+  // Then extract from whatsapp structure
+  let mediaId: string | null = null;
+
+  if (data.document) {
+    mediaId = data.document.id;
     return {
-      type: "pdf",
+      type: "document",
+      id: data.document.id,
       url: data.document.url,
       name: data.document.name,
       size: data.document.size,
     };
-  if (data.image)
+  }
+  if (data.image) {
+    mediaId = data.image.id;
     return {
       type: "image",
+      id: data.image.id,
       url: data.image.url,
       name: data.image.name,
       size: data.image.size,
     };
-  if (data.video)
+  }
+  if (data.video) {
+    mediaId = data.video.id;
     return {
       type: "video",
+      id: data.video.id,
       url: data.video.url,
       name: data.video.name,
       size: data.video.size,
     };
-  if (data.audio)
+  }
+  if (data.audio) {
+    mediaId = data.audio.id;
     return {
       type: "audio",
+      id: data.audio.id,
       url: data.audio.url,
       name: data.audio.name,
       size: data.audio.size,
     };
+  }
   if (data.contacts) {
     return {
       type: "contact",
@@ -124,16 +183,48 @@ const extractMedia = (data: any) => {
       id: data.contacts[0]?.wa_id || "",
     };
   }
+
+  // Fetch media metadata if ID is available
+  if (mediaId) {
+    try {
+      const mediaMeta = await fetchMediaById(mediaId);
+      return {
+        type: mediaMeta.type,
+        url: mediaMeta.url,
+        mime_type: mediaMeta.mime_type,
+        sha256: mediaMeta.sha256,
+        id: mediaId,
+        name: mediaMeta.filename,
+        size: mediaMeta.file_size,
+      };
+    } catch (error) {
+      console.error("Error fetching media metadata:", error);
+    }
+  }
+
   return null;
 };
 
 // Helper function to get account phone number
-const getAccountPhoneNumber = async (accountId: string): Promise<string> => {
+export const getAccountPhoneNumber = async (
+  accountId: string
+): Promise<string> => {
   const accountDoc = await getDoc(doc(db, `accounts/${accountId}`));
   if (!accountDoc.exists()) {
     throw new Error("Account not found");
   }
   return accountDoc.data().phoneNumber;
+};
+
+// NEW: Get phone number ID from account
+export const getAccountPhoneNumberId = async (
+  accountId: string
+): Promise<string> => {
+  const accountDoc = await getDoc(doc(db, `accounts/${accountId}`));
+  if (!accountDoc.exists()) {
+    throw new Error("Account not found");
+  }
+  return accountDoc.data().phoneNumberId;
 };
 
 export const getLeadsCol = () => {
@@ -301,12 +392,16 @@ export const getMessagesByChat = async (
     );
 
     const snap = await getDocs(q);
-    const messages = snap.docs.map((d) => {
+    const messages = [];
+
+    for (const d of snap.docs) {
       const data = d.data();
-      const media = extractMedia(data);
+
+      // Extract media using new structure
+      const media = await extractMedia(data);
       const isOutgoing = (data.direction || "incoming") === "outgoing";
 
-      return {
+      messages.push({
         id: d.id,
         from: isOutgoing ? accountPhone : data.from || "",
         text: { body: extractMessageBody(data) },
@@ -314,17 +409,14 @@ export const getMessagesByChat = async (
         type: data.type || "text",
         direction: data.direction || "incoming",
         status: data.status,
-        media: media
-          ? {
-              type: media.type,
-              url: media.url,
-              id: media.id,
-              name: media.name,
-              size: media.size,
-            }
-          : undefined,
-      };
-    });
+        fcmToken: data.fcmToken || "",
+        // Media fields
+        image: media?.type === "image" ? media : undefined,
+        video: media?.type === "video" ? media : undefined,
+        document: media?.type === "document" ? media : undefined,
+        audio: media?.type === "audio" ? media : undefined,
+      });
+    }
 
     return messages.reverse();
   } catch (error) {
@@ -399,12 +491,14 @@ export const subscribeMessages = (
   return onSnapshot(q, async (snapshot) => {
     try {
       const accountPhone = await getAccountPhoneNumber(accountId);
-      const messages = snapshot.docs.map((d) => {
+      const messages = [];
+
+      for (const d of snapshot.docs) {
         const data = d.data();
-        const media = extractMedia(data);
+        const media = await extractMedia(data);
         const isOutgoing = (data.direction || "incoming") === "outgoing";
 
-        return {
+        messages.push({
           id: d.id,
           from: isOutgoing ? accountPhone : data.from || "",
           text: { body: extractMessageBody(data) },
@@ -412,17 +506,14 @@ export const subscribeMessages = (
           type: data.type || "text",
           direction: data.direction || "incoming",
           status: data.status,
-          media: media
-            ? {
-                type: media.type,
-                url: media.url,
-                id: media.id,
-                name: media.name,
-                size: media.size,
-              }
-            : undefined,
-        };
-      });
+          fcmToken: data.fcmToken || "",
+          // Media fields
+          image: media?.type === "image" ? media : undefined,
+          video: media?.type === "video" ? media : undefined,
+          document: media?.type === "document" ? media : undefined,
+          audio: media?.type === "audio" ? media : undefined,
+        });
+      }
 
       callback(messages);
     } catch (error) {
@@ -438,21 +529,43 @@ export const addMessageToChat = async (
 ) => {
   try {
     const accountPhone = await getAccountPhoneNumber(accountId);
-
     const msgRef = collection(
       db,
       `accounts/${accountId}/discussion/${chatId}/messages`
     );
-    const newDocRef = await addDoc(msgRef, {
+
+    // 🔁 Construct message with new media structure
+    const messageData: any = {
       ...msg,
       from: msg.direction === "outgoing" ? accountPhone : msg.from,
-    });
+      fcmToken: msg.fcmToken || "",
+    };
 
-    // Create last message content
+    // 🔁 Convert media to new structure
+    if (msg.image) {
+      messageData.image = msg.image;
+    } else if (msg.video) {
+      messageData.video = msg.video;
+    } else if (msg.document) {
+      messageData.document = msg.document;
+    } else if (msg.audio) {
+      messageData.audio = msg.audio;
+    }
+
+    const newDocRef = await addDoc(msgRef, messageData);
+
     const lastMessageContent =
-      extractMessageBody(msg) || (msg.media ? `Sent a ${msg.media.type}` : "Sent a file");
+      extractMessageBody(msg) ||
+      (msg.image
+        ? "Sent an image"
+        : msg.video
+        ? "Sent a video"
+        : msg.document
+        ? "Sent a document"
+        : msg.audio
+        ? "Sent an audio"
+        : "Sent a file");
 
-    // Update chat document for both incoming and outgoing messages
     await updateDoc(getChatDocument(accountId, chatId), {
       lastMessage: {
         body: lastMessageContent,
@@ -622,16 +735,36 @@ export const fetchMediaById = async (mediaId: string): Promise<any> => {
     }
 
     const data = await response.json();
-    console.log("📥 Media Metadata from WhatsApp:", data); // 👈 This shows the real URL
-    return data;
+    console.log("📥 Media Metadata from WhatsApp:", data);
+    return {
+      url: data.url,
+      mime_type: data.mime_type,
+      sha256: data.sha256,
+      file_size: data.file_size,
+      filename: data.filename || "file",
+    };
   } catch (error) {
     console.error("❌ Error fetching media by ID:", error);
     throw error;
   }
 };
 
+export const fetchMedia = async (url: string): Promise<Blob> => {
+  const accessToken = import.meta.env.VITE_WHATSAPP_TOKEN;
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch media: ${response.statusText}`);
+  }
+
+  return await response.blob();
+};
+
 export const getClientPhoneFromPath = (path: string): string | null => {
-  // Allow + and digits for phone/chat id
   const match = path.match(/\/accounts\/\d+\/discussion\/([\d+]+)/);
   return match ? match[1] : null;
 };

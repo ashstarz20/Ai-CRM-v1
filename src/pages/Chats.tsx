@@ -12,11 +12,12 @@ import {
   subscribeMessages,
   sendWhatsAppMessage,
   MediaType,
+  fetchMediaById,
 } from "../services/firebase";
 import { updateDoc } from "firebase/firestore";
 import { format, isToday, isYesterday } from "date-fns";
 import {
-  FaFilePdf,
+  // FaFilePdf,
   FaFileAlt,
   FaPaperclip,
   FaSmile,
@@ -32,6 +33,14 @@ import { uploadMediaToWhatsApp } from "../services/firebase";
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
+import { fetchMedia } from "../services/firebase";
+
+
+// import { useEffect, useState, memo } from "react";
+// import { fetchMedia } from "../services/firebase";
+// import { Spinner } from "./Spinner";
+// import { FaFileAlt } from "react-icons/fa";
+// import { formatFileSize } from "../utils";
 
 const getInitials = (name: string) => {
   if (!name) return "?";
@@ -96,17 +105,159 @@ const SkeletonLoader = ({ count = 5 }: { count?: number }) => (
   </div>
 );
 
-const MessageItem = memo(({ message }: { message: Message }) => {
-  const renderMedia = useCallback(() => {
-    if (!message.media) return null;
 
-    switch (message.media.type) {
+
+
+export const MediaRenderer = memo(({ mediaData }: { mediaData: any }) => {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!mediaData?.url) return;
+
+    const loadMedia = async () => {
+      try {
+        setLoading(true);
+        const blob = await fetchMedia(mediaData.url);
+        const objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      } catch (err) {
+        console.error("Error loading media:", err);
+        setError("Failed to load media");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMedia();
+
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [mediaData?.url]);
+
+  if (!mediaData) return null;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4">
+        <Spinner className="h-5 w-5 text-blue-500" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-500 text-xs p-2 bg-red-50 rounded">
+        {error}
+      </div>
+    );
+  }
+
+  switch (mediaData.type) {
+    case "image":
+      return (
+        <div className="mb-2">
+          <img
+            src={blobUrl || ""}
+            alt={mediaData.name || "Image"}
+            className="max-w-full max-h-48 rounded-lg object-contain bg-gray-100"
+            loading="lazy"
+          />
+        </div>
+      );
+    case "video":
+      return (
+        <div className="mb-2">
+          <video
+            src={blobUrl || ""}
+            controls
+            className="max-w-full max-h-48 rounded-lg bg-black"
+            preload="metadata"
+          >
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      );
+    case "document":
+      return (
+        <a
+          href={blobUrl || ""}
+          download={mediaData.name}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center p-3 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
+        >
+          <FaFileAlt className="text-blue-500 text-xl mr-2" />
+          <div>
+            <div className="text-sm font-medium truncate max-w-xs">
+              {mediaData.name || "Document"}
+            </div>
+            {mediaData.size && (
+              <div className="text-xs text-gray-500">
+                {formatFileSize(mediaData.size)}
+              </div>
+            )}
+          </div>
+        </a>
+      );
+    case "audio":
+      return (
+        <div className="mb-2">
+          <audio
+            src={blobUrl || ""}
+            controls
+            className="w-full"
+            preload="none"
+          />
+        </div>
+      );
+    default:
+      return (
+        <a
+          href={blobUrl || ""}
+          download={mediaData.name}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block px-3 py-2 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
+        >
+          Download file
+        </a>
+      );
+  }
+});
+
+// export default MediaRenderer;
+
+
+const MessageItem = memo(({ message }: { message: Message }) => {
+  // 🔁 Determine media type and data
+  const mediaType = message.image
+    ? "image"
+    : message.video
+    ? "video"
+    : message.document
+    ? "document"
+    : message.audio
+    ? "audio"
+    : null;
+
+  const mediaData =
+    message.image || message.video || message.document || message.audio;
+
+  const renderMedia = useCallback(() => {
+    if (!mediaType || !mediaData) return null;
+
+    switch (mediaType) {
       case "image":
         return (
           <div className="mb-2">
             <img
-              src={message.media.url}
-              alt={message.media.name || "Image"}
+              src={mediaData.url}
+              alt={mediaData.name || "Image"}
               className="max-w-full max-h-48 rounded-lg object-contain bg-gray-100"
               loading="lazy"
             />
@@ -117,7 +268,7 @@ const MessageItem = memo(({ message }: { message: Message }) => {
         return (
           <div className="mb-2">
             <video
-              src={message.media.url}
+              src={mediaData.url}
               controls
               className="max-w-full max-h-48 rounded-lg bg-black"
               preload="metadata"
@@ -127,30 +278,22 @@ const MessageItem = memo(({ message }: { message: Message }) => {
           </div>
         );
 
-      // case "pdf":
       case "document":
         return (
           <a
-            href={message.media.url}
+            href={mediaData.url}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center p-3 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
           >
-            {message.media.type === "document" ? (
-              <FaFilePdf className="text-red-500 text-xl mr-2" />
-            ) : (
-              <FaFileAlt className="text-blue-500 text-xl mr-2" />
-            )}
+            <FaFileAlt className="text-blue-500 text-xl mr-2" />
             <div>
               <div className="text-sm font-medium truncate max-w-xs">
-                {message.media.name ||
-                  (message.media.type === "document"
-                    ? "Document.pdf"
-                    : "File.doc")}
+                {mediaData.name || "Document"}
               </div>
-              {message.media.size && (
+              {mediaData.size && (
                 <div className="text-xs text-gray-500">
-                  {formatFileSize(message.media.size)}
+                  {formatFileSize(mediaData.size)}
                 </div>
               )}
             </div>
@@ -161,7 +304,7 @@ const MessageItem = memo(({ message }: { message: Message }) => {
         return (
           <div className="mb-2">
             <audio
-              src={message.media.url}
+              src={mediaData.url}
               controls
               className="w-full"
               preload="none"
@@ -172,7 +315,7 @@ const MessageItem = memo(({ message }: { message: Message }) => {
       default:
         return (
           <a
-            href={message.media.url}
+            href={mediaData.url}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block px-3 py-2 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
@@ -181,7 +324,7 @@ const MessageItem = memo(({ message }: { message: Message }) => {
           </a>
         );
     }
-  }, [message.media]);
+  }, [mediaType, mediaData]);
 
   return (
     <div
@@ -196,7 +339,7 @@ const MessageItem = memo(({ message }: { message: Message }) => {
             : "bg-white text-gray-800 rounded-bl-none border border-gray-200"
         }`}
       >
-        {message.media && renderMedia()}
+         {mediaData && <MediaRenderer mediaData={mediaData} />}
         {message.text.body && (
           <div className="text-sm">{message.text.body}</div>
         )}
@@ -560,54 +703,76 @@ export default function Chats() {
   }, [messages, scrollToBottom]);
 
   useEffect(() => {
-  setSelected(null);
-  setMessages([]);
-  setChats([]); // Add this line to clear chats immediately
-}, [accountId]);
+    setSelected(null);
+    setMessages([]);
+    setChats([]); // Add this line to clear chats immediately
+  }, [accountId]);
 
-  const send = async () => {
-    if (!selected || !draft.trim() || sending) return;
 
-    let newDocRef: import("firebase/firestore").DocumentReference | null = null;
-    setSending(true);
 
-    if (!accountId) return;
 
-    try {
-      const msg: Omit<Message, "id"> = {
-        from: "917710945924", // Using number ID
-        text: { body: draft.trim() },
-        timestamp: Timestamp.fromDate(new Date()),
-        type: "text",
-        direction: "outgoing",
-        status: "sending",
-      };
 
-      newDocRef = await addMessageToChat(accountId, selected.id, msg);
 
-      const response = await sendWhatsAppMessage(
-        "570983109425469",
-        selected.contact.phone,
-        draft.trim()
-      );
+  
+  const getPhoneNumberId = async (accountId: string): Promise<string> => {
+  const accountDoc = await getDoc(doc(db, `accounts/${accountId}`));
+  if (!accountDoc.exists()) throw new Error("Account not found");
+  const data = accountDoc.data();
+  if (!data.phoneNumber) throw new Error("phoneNumber ID missing in Firestore");
+  return data.phoneNumber;
+};
 
-      // Update with WhatsApp message ID
-      await updateDoc(newDocRef, {
-        status: "sent",
-        id: response.id,
-      });
+const send = async () => {
+  if (!selected || !draft.trim() || sending) return;
 
-      setDraft("");
-      setShowEmojiPicker(false);
-    } catch (err) {
-      console.error("Sending message failed:", err);
-      if (newDocRef) {
-        await updateDoc(newDocRef, { status: "failed" });
-      }
-    } finally {
-      setSending(false);
+  let newDocRef: import("firebase/firestore").DocumentReference | null = null;
+  setSending(true);
+
+  if (!accountId) return;
+
+  try {
+    // ✅ Dynamically get the right WhatsApp Phone Number ID
+    const phoneNumberId = await getPhoneNumberId(accountId);
+
+    const msg: Omit<Message, "id"> = {
+      from: phoneNumberId, // ✅ Correct from ID
+      text: { body: draft.trim() },
+      timestamp: Timestamp.fromDate(new Date()),
+      type: "text",
+      direction: "outgoing",
+      status: "sending",
+    };
+
+    newDocRef = await addMessageToChat(accountId, selected.id, msg);
+
+    const response = await sendWhatsAppMessage(
+      phoneNumberId, // ✅ Fixed: now not undefined
+      selected.contact.phone,
+      draft.trim()
+    );
+
+    // ✅ Update Firestore with response message ID
+    await updateDoc(newDocRef, {
+      status: "sent",
+      id: response.id,
+    });
+
+    setDraft("");
+    setShowEmojiPicker(false);
+  } catch (err) {
+    console.error("Sending message failed:", err);
+    if (newDocRef) {
+      await updateDoc(newDocRef, { status: "failed" });
     }
-  };
+  } finally {
+    setSending(false);
+  }
+};
+
+
+
+
+
 
   const clearChat = async () => {
     if (!selected || clearingChat) return;
@@ -751,7 +916,7 @@ export default function Chats() {
   // };
 
   const uploadAndSend = async () => {
-    if (!selected || !selectedFile || !attachmentDialog) return;
+    if (!selected || !selectedFile || !attachmentDialog || !accountId) return;
 
     setUploading(true);
     let newDocRef: import("firebase/firestore").DocumentReference | null = null;
@@ -759,7 +924,6 @@ export default function Chats() {
     if (!accountId) return;
 
     try {
-      // Map local media types to WhatsApp supported types
       const whatsappMediaTypeMap: Record<
         MediaType,
         "image" | "video" | "document" | "audio"
@@ -772,14 +936,14 @@ export default function Chats() {
 
       const whatsappType = whatsappMediaTypeMap[attachmentDialog];
 
-      // 🔁 Step 1: Upload media to WhatsApp
       const mediaId = await uploadMediaToWhatsApp(
-        "570983109425469", // your phoneNumberId
+        "570983109425469",
         selectedFile,
-        selectedFile.type // pass correct MIME type
+        selectedFile.type
       );
 
-      // 🔁 Step 2: Create message in Firestore immediately with `sending` status
+      const mediaMeta = await fetchMediaById(mediaId);
+
       const msg: Omit<Message, "id"> = {
         from: "917710945924",
         text: { body: "" },
@@ -787,9 +951,12 @@ export default function Chats() {
         type: attachmentDialog,
         direction: "outgoing",
         status: "sending",
-        media: {
-          type: attachmentDialog,
+        [attachmentDialog]: {
+          // 🔁 Dynamic property based on media type
           id: mediaId,
+          url: mediaMeta.url,
+          mime_type: mediaMeta.mime_type,
+          sha256: mediaMeta.sha256,
           name: selectedFile.name,
           size: selectedFile.size,
         },
@@ -797,7 +964,7 @@ export default function Chats() {
 
       newDocRef = await addMessageToChat(accountId, selected.id, msg);
 
-      // 🔁 Step 3: Send media message via WhatsApp
+     
       const response = await sendWhatsAppMessage(
         "570983109425469",
         selected.contact.phone,
@@ -810,7 +977,7 @@ export default function Chats() {
         }
       );
 
-      // 🔁 Step 4: Update Firestore message with status
+      
       await updateDoc(newDocRef, {
         status: "sent",
         id: response.id,

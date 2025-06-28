@@ -399,7 +399,7 @@ export const getMessagesByChat = async (
 
       // Extract media using new structure
       const media = await extractMedia(data);
-      const isOutgoing = (data.direction || "incoming") === "outgoing";
+      const isOutgoing = data.direction === "outgoing";
 
       messages.push({
         id: d.id,
@@ -407,7 +407,9 @@ export const getMessagesByChat = async (
         text: { body: extractMessageBody(data) },
         timestamp: data.timestamp as Timestamp,
         type: data.type || "text",
-        direction: data.direction || "incoming",
+        direction: isOutgoing
+          ? "outgoing"
+          : ("incoming" as "outgoing" | "incoming"),
         status: data.status,
         fcmToken: data.fcmToken || "",
         // Media fields
@@ -456,7 +458,7 @@ export const subscribeChats = (
                 timestamp: msgData.timestamp,
               };
             } else {
-              lastMessage = null; // Explicitly set to null if no messages
+              lastMessage = null;
             }
           } catch (err) {
             console.error("Error fetching last message for chat", chatId, err);
@@ -464,16 +466,37 @@ export const subscribeChats = (
           }
         }
 
+        const normalizedPhone = chatId.replace(/[^\d]/g, "");
         return {
           id: chatId,
-          contact: { name, phone: chatId },
+          // contact: {
+          //   name: data.client_name || data.contact?.name || data.name || `+${chatId}`,
+          //   phone: chatId
+          // },
+          contact: {
+            name,
+            phone: normalizedPhone,
+          },
+          // lastMessage: data.lastMessage || null,
           lastMessage,
           unreadCount: data.unreadCount || 0,
-        };
+        } as Chat;
       })
     );
 
-    callback(chats);
+    const sortedChats = chats.sort((a, b) => {
+      const aUnread = a.unreadCount || 0;
+      const bUnread = b.unreadCount || 0;
+
+      if (aUnread > 0 && bUnread === 0) return -1;
+      if (bUnread > 0 && aUnread === 0) return 1;
+
+      const aTime = a.lastMessage?.timestamp?.toMillis() || 0;
+      const bTime = b.lastMessage?.timestamp?.toMillis() || 0;
+      return bTime - aTime;
+    });
+
+    callback(sortedChats);
   });
 };
 
@@ -514,12 +537,55 @@ export const subscribeMessages = (
           audio: media?.type === "audio" ? media : undefined,
         });
       }
+      // if (messages.length > 0) {
+      //   const lastMessage = messages[messages.length - 1];
+      //   await updateChatDocument(accountId, chatId, lastMessage);
+      // }
 
       callback(messages);
     } catch (error) {
       console.error("Error in message subscription:", error);
     }
   });
+};
+
+// Update the updateChatDocument function
+export const updateChatDocument = async (
+  accountId: string,
+  chatId: string,
+  message: Message
+) => {
+  const chatRef = doc(db, `accounts/${accountId}/discussion/${chatId}`);
+
+  // Improved message extraction
+  const lastMessageContent =
+    extractMessageBody(message) ||
+    (message.image
+      ? "Sent an image"
+      : message.video
+      ? "Sent a video"
+      : message.document
+      ? "Sent a document"
+      : message.audio
+      ? "Sent an audio"
+      : "Sent a file");
+
+  const updateData: any = {
+    lastMessage: {
+      body: lastMessageContent,
+      timestamp: message.timestamp || serverTimestamp(),
+    },
+  };
+
+  // Fixed unread count increment for incoming messages
+  if (message.direction === "incoming") {
+    updateData.unreadCount = increment(1);
+  } else {
+    // Reset unread count when we send a message
+    updateData.unreadCount = 0;
+  }
+
+  await updateDoc(chatRef, updateData);
 };
 
 export const addMessageToChat = async (
@@ -553,26 +619,30 @@ export const addMessageToChat = async (
     }
 
     const newDocRef = await addDoc(msgRef, messageData);
+    await updateChatDocument(accountId, chatId, {
+      ...msg,
+      id: newDocRef.id,
+    } as Message);
 
-    const lastMessageContent =
-      extractMessageBody(msg) ||
-      (msg.image
-        ? "Sent an image"
-        : msg.video
-        ? "Sent a video"
-        : msg.document
-        ? "Sent a document"
-        : msg.audio
-        ? "Sent an audio"
-        : "Sent a file");
+    // const lastMessageContent =
+    //   extractMessageBody(msg) ||
+    //   (msg.image
+    //     ? "Sent an image"
+    //     : msg.video
+    //     ? "Sent a video"
+    //     : msg.document
+    //     ? "Sent a document"
+    //     : msg.audio
+    //     ? "Sent an audio"
+    //     : "Sent a file");
 
-    await updateDoc(getChatDocument(accountId, chatId), {
-      lastMessage: {
-        body: lastMessageContent,
-        timestamp: msg.timestamp || serverTimestamp(),
-      },
-      ...(msg.direction === "incoming" && { unreadCount: increment(1) }),
-    });
+    // await updateDoc(getChatDocument(accountId, chatId), {
+    //   lastMessage: {
+    //     body: lastMessageContent,
+    //     timestamp: msg.timestamp || serverTimestamp(),
+    //   },
+    //   ...(msg.direction === "incoming" && { unreadCount: increment(1) }),
+    // });
 
     return newDocRef;
   } catch (error) {

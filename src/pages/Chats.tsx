@@ -35,7 +35,6 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
 import { fetchMedia } from "../services/firebase";
 
-
 // import { useEffect, useState, memo } from "react";
 // import { fetchMedia } from "../services/firebase";
 // import { Spinner } from "./Spinner";
@@ -105,10 +104,16 @@ const SkeletonLoader = ({ count = 5 }: { count?: number }) => (
   </div>
 );
 
+type MediaData = {
+  url: string;
+  type: "image" | "video" | "document" | "audio";
+  name?: string;
+  size?: number;
+  mime_type?: string;
+  sha256?: string;
+};
 
-
-
-export const MediaRenderer = memo(({ mediaData }: { mediaData: any }) => {
+export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -151,9 +156,7 @@ export const MediaRenderer = memo(({ mediaData }: { mediaData: any }) => {
 
   if (error) {
     return (
-      <div className="text-red-500 text-xs p-2 bg-red-50 rounded">
-        {error}
-      </div>
+      <div className="text-red-500 text-xs p-2 bg-red-50 rounded">{error}</div>
     );
   }
 
@@ -232,7 +235,6 @@ export const MediaRenderer = memo(({ mediaData }: { mediaData: any }) => {
 
 // export default MediaRenderer;
 
-
 const MessageItem = memo(({ message }: { message: Message }) => {
   // 🔁 Determine media type and data
   const mediaType = message.image
@@ -248,84 +250,6 @@ const MessageItem = memo(({ message }: { message: Message }) => {
   const mediaData =
     message.image || message.video || message.document || message.audio;
 
-  const renderMedia = useCallback(() => {
-    if (!mediaType || !mediaData) return null;
-
-    switch (mediaType) {
-      case "image":
-        return (
-          <div className="mb-2">
-            <img
-              src={mediaData.url}
-              alt={mediaData.name || "Image"}
-              className="max-w-full max-h-48 rounded-lg object-contain bg-gray-100"
-              loading="lazy"
-            />
-          </div>
-        );
-
-      case "video":
-        return (
-          <div className="mb-2">
-            <video
-              src={mediaData.url}
-              controls
-              className="max-w-full max-h-48 rounded-lg bg-black"
-              preload="metadata"
-            >
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        );
-
-      case "document":
-        return (
-          <a
-            href={mediaData.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center p-3 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
-          >
-            <FaFileAlt className="text-blue-500 text-xl mr-2" />
-            <div>
-              <div className="text-sm font-medium truncate max-w-xs">
-                {mediaData.name || "Document"}
-              </div>
-              {mediaData.size && (
-                <div className="text-xs text-gray-500">
-                  {formatFileSize(mediaData.size)}
-                </div>
-              )}
-            </div>
-          </a>
-        );
-
-      case "audio":
-        return (
-          <div className="mb-2">
-            <audio
-              src={mediaData.url}
-              controls
-              className="w-full"
-              preload="none"
-            />
-          </div>
-        );
-
-      default:
-        return (
-          <a
-            href={mediaData.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block px-3 py-2 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
-          >
-            Download file
-          </a>
-        );
-    }
-  }, [mediaType, mediaData]);
-
   return (
     <div
       className={`flex mb-2.5 ${
@@ -339,7 +263,15 @@ const MessageItem = memo(({ message }: { message: Message }) => {
             : "bg-white text-gray-800 rounded-bl-none border border-gray-200"
         }`}
       >
-         {mediaData && <MediaRenderer mediaData={mediaData} />}
+        {mediaData && mediaType && (
+          <MediaRenderer
+            mediaData={{
+              ...mediaData,
+              type: mediaType,
+              url: mediaData.url ?? "",
+            }}
+          />
+        )}
         {message.text.body && (
           <div className="text-sm">{message.text.body}</div>
         )}
@@ -404,6 +336,8 @@ const ChatListItem = memo(
         className={`p-3 flex items-start cursor-pointer transition ${
           isSelected
             ? "bg-blue-50 border-l-2 border-blue-500"
+            : chat.unreadCount
+            ? "bg-yellow-50 border-l-2 border-yellow-400"
             : "hover:bg-gray-50"
         }`}
       >
@@ -708,71 +642,61 @@ export default function Chats() {
     setChats([]); // Add this line to clear chats immediately
   }, [accountId]);
 
-
-
-
-
-
-  
   const getPhoneNumberId = async (accountId: string): Promise<string> => {
-  const accountDoc = await getDoc(doc(db, `accounts/${accountId}`));
-  if (!accountDoc.exists()) throw new Error("Account not found");
-  const data = accountDoc.data();
-  if (!data.phoneNumber) throw new Error("phoneNumber ID missing in Firestore");
-  return data.phoneNumber;
-};
+    const accountDoc = await getDoc(doc(db, `accounts/${accountId}`));
+    if (!accountDoc.exists()) throw new Error("Account not found");
+    const data = accountDoc.data();
+    if (!data.phoneNumber)
+      throw new Error("phoneNumber ID missing in Firestore");
+    return data.phoneNumber;
+  };
 
-const send = async () => {
-  if (!selected || !draft.trim() || sending) return;
+  const send = async () => {
+    if (!selected || !draft.trim() || sending) return;
 
-  let newDocRef: import("firebase/firestore").DocumentReference | null = null;
-  setSending(true);
+    let newDocRef: import("firebase/firestore").DocumentReference | null = null;
+    setSending(true);
 
-  if (!accountId) return;
+    if (!accountId) return;
 
-  try {
-    // ✅ Dynamically get the right WhatsApp Phone Number ID
-    const phoneNumberId = await getPhoneNumberId(accountId);
+    try {
+      // ✅ Dynamically get the right WhatsApp Phone Number ID
+      const phoneNumberId = await getPhoneNumberId(accountId);
 
-    const msg: Omit<Message, "id"> = {
-      from: phoneNumberId, // ✅ Correct from ID
-      text: { body: draft.trim() },
-      timestamp: Timestamp.fromDate(new Date()),
-      type: "text",
-      direction: "outgoing",
-      status: "sending",
-    };
+      const msg: Omit<Message, "id"> = {
+        from: phoneNumberId, // ✅ Correct from ID
+        text: { body: draft.trim() },
+        timestamp: Timestamp.fromDate(new Date()),
+        type: "text",
+        direction: "outgoing",
+        status: "sending",
+      };
 
-    newDocRef = await addMessageToChat(accountId, selected.id, msg);
+      newDocRef = await addMessageToChat(accountId, selected.id, msg);
 
-    const response = await sendWhatsAppMessage(
-      phoneNumberId, // ✅ Fixed: now not undefined
-      selected.contact.phone,
-      draft.trim()
-    );
+      const response = await sendWhatsAppMessage(
+        phoneNumberId, // ✅ Fixed: now not undefined
+        selected.contact.phone,
+        draft.trim()
+      );
 
-    // ✅ Update Firestore with response message ID
-    await updateDoc(newDocRef, {
-      status: "sent",
-      id: response.id,
-    });
+      // ✅ Update Firestore with response message ID
+      await updateDoc(newDocRef, {
+        status: "sent",
+        id: response.id,
+      });
 
-    setDraft("");
-    setShowEmojiPicker(false);
-  } catch (err) {
-    console.error("Sending message failed:", err);
-    if (newDocRef) {
-      await updateDoc(newDocRef, { status: "failed" });
+      setDraft("");
+      setShowEmojiPicker(false);
+    } catch (err) {
+      console.error("Sending message failed:", err);
+      if (newDocRef) {
+        await updateDoc(newDocRef, { status: "failed" });
+      }
+    } finally {
+      setSending(false);
     }
-  } finally {
-    setSending(false);
-  }
-};
-
-
-
-
-
+  };
 
   const clearChat = async () => {
     if (!selected || clearingChat) return;
@@ -964,7 +888,6 @@ const send = async () => {
 
       newDocRef = await addMessageToChat(accountId, selected.id, msg);
 
-     
       const response = await sendWhatsAppMessage(
         "570983109425469",
         selected.contact.phone,
@@ -977,7 +900,6 @@ const send = async () => {
         }
       );
 
-      
       await updateDoc(newDocRef, {
         status: "sent",
         id: response.id,
@@ -1247,7 +1169,15 @@ const send = async () => {
                 key={c.id}
                 chat={c}
                 isSelected={selected?.id === c.id}
-                onSelect={() => setSelected(c)}
+                onSelect={() => {
+                  setSelected(c);
+                  
+                  if (c.unreadCount && c.unreadCount > 0 && accountId) {
+                    updateDoc(getChatDocument(accountId, c.id), {
+                      unreadCount: 0,
+                    });
+                  }
+                }}
               />
             ))
           ) : (

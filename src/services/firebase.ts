@@ -6,6 +6,7 @@ import {
   setDoc,
   addDoc,
   updateDoc,
+  DocumentReference,
   doc,
   query,
   orderBy,
@@ -23,7 +24,6 @@ import app from "../config/firebase";
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export { Timestamp };
-
 export type MediaType = "image" | "video" | "document" | "audio";
 
 export interface Lead {
@@ -107,9 +107,32 @@ export interface Message {
   };
 }
 
+// const extractMessageBody = (data: unknown): string => {
+//   if (typeof data === "object" && data !== null) {
+//     const d = data as any;
+//     if (d.text?.body) return d.text.body;
+//     if (d.body) return d.body;
+//     if (d.interactive?.body?.text) return d.interactive.body.text;
+//     if (d.interactive?.header?.text) return d.interactive.header.text;
+//     if (Array.isArray(d.interactive?.action?.buttons)) {
+//       return d.interactive.action.buttons
+//         .map((btn: any) => btn.text)
+//         .join(", ");
+//     }
+//   }
+//   return "Comming soon..."; // Default message if no body found
+// };
+
 const extractMessageBody = (data: unknown): string => {
   if (typeof data === "object" && data !== null) {
     const d = data as any;
+    // Return media captions if available
+    if (d.image?.caption) return d.image.caption;
+    if (d.video?.caption) return d.video.caption;
+    if (d.document?.caption) return d.document.caption;
+    if (d.audio?.caption) return d.audio.caption;
+
+    // Handle other message types
     if (d.text?.body) return d.text.body;
     if (d.body) return d.body;
     if (d.interactive?.body?.text) return d.interactive.body.text;
@@ -119,63 +142,58 @@ const extractMessageBody = (data: unknown): string => {
         .map((btn: any) => btn.text)
         .join(", ");
     }
+
+    // Return media type as placeholder if no caption
+    if (d.image) return "Image";
+    if (d.video) return "Video";
+    if (d.document) return "Document";
+    if (d.audio) return "Audio";
+    if (d.contacts) return "Contact";
   }
-  return "[No Content]";
+  return "";
 };
 
 const extractMedia = async (data: any): Promise<any> => {
-  // First check new structure
-  if (data.image) return { type: "image", ...data.image };
-  if (data.video) return { type: "video", ...data.video };
-  if (data.document) return { type: "document", ...data.document };
-  if (data.audio) return { type: "audio", ...data.audio };
+  const mediaTypes: MediaType[] = ["image", "video", "document", "audio"];
+  for (const type of mediaTypes) {
+    if (data[type]?.url) {
+      return { ...data[type], type };
+    }
+  }
+  // Inside extractMedia() function
+  // console.log("Data received for media extraction:", data);
+
+  let mediaId: string | null = null;
+  let mediaType: string | null = null;
 
   // Then old structure
   if (data.media) return data.media;
 
-  // Then extract from whatsapp structure
-  let mediaId: string | null = null;
-
-  if (data.document) {
-    mediaId = data.document.id;
-    return {
-      type: "document",
-      id: data.document.id,
-      url: data.document.url,
-      name: data.document.name,
-      size: data.document.size,
-    };
-  }
-  if (data.image) {
+  // Determine media type and ID from new or old structure
+  if (data.image?.id) {
     mediaId = data.image.id;
-    return {
-      type: "image",
-      id: data.image.id,
-      url: data.image.url,
-      name: data.image.name,
-      size: data.image.size,
-    };
-  }
-  if (data.video) {
+    mediaType = "image";
+  } else if (data.video?.id) {
     mediaId = data.video.id;
-    return {
-      type: "video",
-      id: data.video.id,
-      url: data.video.url,
-      name: data.video.name,
-      size: data.video.size,
-    };
-  }
-  if (data.audio) {
+    mediaType = "video";
+  } else if (data.document?.id) {
+    mediaId = data.document.id;
+    mediaType = "document";
+  } else if (data.audio?.id) {
     mediaId = data.audio.id;
-    return {
-      type: "audio",
-      id: data.audio.id,
-      url: data.audio.url,
-      name: data.audio.name,
-      size: data.audio.size,
-    };
+    mediaType = "audio";
+  } else if (data.media?.id && data.type) {
+    mediaId = data.media.id;
+    mediaType = data.type;
   }
+
+  // After extracting mediaId
+  // if (mediaId) {
+  //   console.log("📥 Media ID found:", mediaId, "Type:", mediaType);
+  // } else {
+  //   console.log("⚠️ No media ID found in message data");
+  // }
+
   if (data.contacts) {
     return {
       type: "contact",
@@ -184,21 +202,60 @@ const extractMedia = async (data: any): Promise<any> => {
     };
   }
 
+  // console.log("Extracted Media ID:", mediaId);
+
   // Fetch media metadata if ID is available
-  if (mediaId) {
+  if (!mediaId || !mediaType) {
     try {
-      const mediaMeta = await fetchMediaById(mediaId);
-      return {
-        type: mediaMeta.type,
-        url: mediaMeta.url,
-        mime_type: mediaMeta.mime_type,
-        sha256: mediaMeta.sha256,
+      // Use the new API webhook to get the downloadUrl
+      const response = await fetch(
+        "https://asia-south1-starzapp.cloudfunctions.net/crm-media-url-receiver/cacheWhatsAppMedia",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mediaId, mediaType }),
+        }
+      );
+      if (!response.ok) throw new Error("Failed to fetch media downloadUrl");
+      const result = await response.json();
+      // console.log("📥 Media Metadata from WhatsApp:", result);
+      // Directly use the downloadUrl for rendering, no access token needed
+
+      console.log("📦 Extracted Media Info:", {
+        type: mediaType,
         id: mediaId,
-        name: mediaMeta.filename,
-        size: mediaMeta.file_size,
+        url: result.downloadUrl,
+        mime_type: result.mimeType,
+        name: result.fileName,
+        size: result.fileSize,
+        firebasePath: result.firebasePath,
+      });
+      // If you need to update a message document with media info, define messageRef and mediaData accordingly.
+      // Example:
+      // const messageRef = doc(db, `accounts/${accountId}/discussion/${chatId}/messages/${messageId}`);
+      // const mediaData = { ... };
+      // await updateDoc(messageRef, { [mediaType]: mediaData });
+
+      // Remove or implement the above block as needed.
+
+      return {
+        type: mediaType,
+        id: mediaId,
+        url: result.downloadUrl,
+        mime_type: result.mimeType,
+        name: result.fileName,
+        size: result.fileSize,
+        firebasePath: result.firebasePath,
+        isPublicUrl: true,
       };
     } catch (error) {
-      console.error("Error fetching media metadata:", error);
+      console.error("Error fetching media downloadUrl:", error);
+      return {
+        type: mediaType,
+        id: mediaId,
+        url: "",
+        error: "Failed to load media",
+      };
     }
   }
 
@@ -453,6 +510,17 @@ export const subscribeChats = (
             const msgSnap = await getDocs(q);
             if (!msgSnap.empty) {
               const msgData = msgSnap.docs[0].data();
+
+              const mediaType = msgData.image
+                ? "Image"
+                : msgData.video
+                ? "Video"
+                : msgData.document
+                ? "Document"
+                : msgData.audio
+                ? "Audio"
+                : "";
+
               lastMessage = {
                 body: extractMessageBody(msgData),
                 timestamp: msgData.timestamp,
@@ -829,7 +897,7 @@ export const fetchMediaById = async (mediaId: string): Promise<any> => {
     }
 
     const data = await response.json();
-    console.log("📥 Media Metadata from WhatsApp:", data);
+    // console.log("📥 Media Metadata from WhatsApp:", data);
     return {
       url: data.url,
       mime_type: data.mime_type,

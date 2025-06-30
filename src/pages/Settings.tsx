@@ -455,7 +455,7 @@ const Settings: React.FC = () => {
               </div>
             </button>
 
-            {isAdmin && (
+            {/* {isAdmin && (
               <button
                 onClick={() => setActiveTab("onboarding")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
@@ -490,7 +490,7 @@ const Settings: React.FC = () => {
                   )}
                 </div>
               </button>
-            )}
+            )} */}
           </nav>
         </div>
 
@@ -972,10 +972,9 @@ const Settings: React.FC = () => {
           )}
 
           {/* Onboarding Tab */}
-          {activeTab === "onboarding" && isAdmin && (
+          {/* {activeTab === "onboarding" && isAdmin && (
             <div className="space-y-6">
               <div className="bg-gradient-to-r from-primary/10 to-indigo-50 dark:to-indigo-900/10 rounded-xl p-5 border border-primary/20">
-                {/* Tab Headers */}
                 <div className="flex border-b border-border mb-6">
                   {["Welcome", "Access", "Upload Docs", "Business Details"].map(
                     (tab, index) => (
@@ -997,9 +996,7 @@ const Settings: React.FC = () => {
                   )}
                 </div>
 
-                {/* Tab Content */}
                 <div className="pt-2">
-                  {/* Welcome Tab */}
                   {onboardingStep === 0 && (
                     <div className="text-center py-6">
                       <div className="mx-auto bg-primary/10 p-4 rounded-full w-16 h-16 flex items-center justify-center mb-5">
@@ -1035,7 +1032,6 @@ const Settings: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Access Tab */}
                   {onboardingStep === 1 && (
                     <div>
                       <h3 className="text-lg font-medium text-foreground mb-5">
@@ -1108,7 +1104,6 @@ const Settings: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Upload Docs Tab */}
                   {onboardingStep === 2 && (
                     <div>
                       <h3 className="text-lg font-medium text-foreground mb-5">
@@ -1209,7 +1204,6 @@ const Settings: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Business Details Tab */}
                   {onboardingStep === 3 && (
                     <div>
                       <h3 className="text-lg font-medium text-foreground mb-6">
@@ -1312,10 +1306,10 @@ const Settings: React.FC = () => {
                 </div>
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Add Users Tab */}
-          {activeTab === "users" && isAdmin && (
+          {/* {activeTab === "users" && isAdmin && (
             <div className="space-y-6">
               <div className="bg-muted rounded-xl p-5 border border-border">
                 <div className="flex items-center mb-4">
@@ -1474,7 +1468,7 @@ const Settings: React.FC = () => {
                 )}
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>

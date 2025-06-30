@@ -33,7 +33,7 @@ import { uploadMediaToWhatsApp } from "../services/firebase";
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
-import { fetchMedia } from "../services/firebase";
+// import { fetchMedia } from "../services/firebase";
 
 // import { useEffect, useState, memo } from "react";
 // import { fetchMedia } from "../services/firebase";
@@ -104,90 +104,145 @@ const SkeletonLoader = ({ count = 5 }: { count?: number }) => (
   </div>
 );
 
-type MediaData = {
-  url: string;
-  type: "image" | "video" | "document" | "audio";
+// Update the MediaData interface
+interface MediaData {
+  type: MediaType;
   id?: string;
+  url?: string;
+  mime_type?: string;
   name?: string;
   size?: number;
-  mime_type?: string;
-  sha256?: string;
-};
+}
+
+// Update the MediaRenderer component
+// export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
+//   // Use the direct URL from the API response
+//   const url = mediaData.url;
+
+//   if (!url) {
+//     return (
+//       <div className="text-yellow-700 text-sm p-3 bg-yellow-50 border border-yellow-300 rounded-md shadow-sm">
+//         ⚠️ This media preview feature is under development and will be available
+//         in a future update.
+//       </div>
+//     );
+//   }
+
+//   switch (mediaData.type) {
+//     case "image":
+//       return (
+//         <div className="mb-2">
+//           <img
+//             src={url}
+//             alt={mediaData.name || "Image"}
+//             className="max-w-full max-h-48 rounded-lg object-contain bg-gray-100"
+//             loading="lazy"
+//           />
+//         </div>
+//       );
+//     case "video":
+//       return (
+//         <div className="mb-2">
+//           <video
+//             src={url}
+//             controls
+//             className="max-w-full max-h-48 rounded-lg bg-black"
+//             preload="metadata"
+//           >
+//             Your browser does not support the video tag.
+//           </video>
+//         </div>
+//       );
+//     case "document":
+//       return (
+//         <a
+//           href={url}
+//           download={mediaData.name}
+//           target="_blank"
+//           rel="noopener noreferrer"
+//           className="flex items-center p-3 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
+//         >
+//           <FaFileAlt className="text-blue-500 text-xl mr-2" />
+//           <div>
+//             <div className="text-sm font-medium truncate max-w-xs">
+//               {mediaData.name || "Document"}
+//             </div>
+//             {mediaData.size && (
+//               <div className="text-xs text-gray-500">
+//                 {formatFileSize(mediaData.size)}
+//               </div>
+//             )}
+//           </div>
+//         </a>
+//       );
+//     case "audio":
+//       return (
+//         <div className="mb-2">
+//           <audio
+//             src={url} // Use the direct URL
+//             controls
+//             className="w-full"
+//             preload="none"
+//           />
+//         </div>
+//       );
+//     default:
+//       return (
+//         <a
+//           href={url}
+//           download={mediaData.name}
+//           target="_blank"
+//           rel="noopener noreferrer"
+//           className="inline-block px-3 py-2 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
+//         >
+//           Download file
+//         </a>
+//       );
+//   }
+// });
 
 export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { type, url, name, size } = mediaData;
 
-  useEffect(() => {
-    let objectUrl: string | null = null;
-
-    const loadMedia = async () => {
-      try {
-        setLoading(true);
-
-        let url = mediaData.url;
-
-        if (mediaData.type === "image" && mediaData.id) {
-          const meta = await fetchMediaById(mediaData.id); // assume it returns { url }
-          url = meta.url;
-        }
-
-        if (!url) throw new Error("No media URL found");
-
-        const blob = await fetchMedia(url);
-        objectUrl = URL.createObjectURL(blob);
-        setBlobUrl(objectUrl);
-      } catch (err) {
-        console.error("Error loading media:", err);
-        setError("Failed to load media");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadMedia();
-
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [mediaData]);
-
-  if (!mediaData) return null;
-
-  if (loading) {
+  // if (!url) {
+  //   return (
+  //     <div className="text-yellow-700 text-sm p-3 bg-yellow-50 border border-yellow-300 rounded-md shadow-sm">
+  //       ⚠️ This media preview feature is under development and will be available in a future update.
+  //     </div>
+  //   );
+  // }
+  if (!url) {
     return (
-      <div className="flex items-center justify-center p-4">
-        <Spinner className="h-5 w-5 text-blue-500" />
+      <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+        <div className="text-yellow-700 text-sm">
+          <FaFileAlt className="inline mr-2" />
+          {name || "File"} - {formatFileSize(size)}
+        </div>
+        <p className="text-xs text-yellow-600 mt-1">
+          Tap to download unavailable in preview
+        </p>
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="text-red-500 text-xs p-2 bg-red-50 rounded">{error}</div>
-    );
-  }
-
-  switch (mediaData.type) {
+  switch (type) {
     case "image":
       return (
         <div className="mb-2">
           <img
-            src={blobUrl || ""}
-            alt={mediaData.name || "Image"}
+            src={url}
+            alt={name || "Image"}
             className="max-w-full max-h-48 rounded-lg object-contain bg-gray-100"
             loading="lazy"
           />
         </div>
       );
+
     case "video":
       return (
         <div className="mb-2">
           <video
-            src={blobUrl || ""}
+            src={url}
             controls
             className="max-w-full max-h-48 rounded-lg bg-black"
             preload="metadata"
@@ -196,11 +251,12 @@ export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
           </video>
         </div>
       );
+
     case "document":
       return (
         <a
-          href={blobUrl || ""}
-          download={mediaData.name}
+          href={url}
+          download={name}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center p-3 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
@@ -208,32 +264,29 @@ export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
           <FaFileAlt className="text-blue-500 text-xl mr-2" />
           <div>
             <div className="text-sm font-medium truncate max-w-xs">
-              {mediaData.name || "Document"}
+              {name || "Document"}
             </div>
-            {mediaData.size && (
+            {size && (
               <div className="text-xs text-gray-500">
-                {formatFileSize(mediaData.size)}
+                {formatFileSize(size)}
               </div>
             )}
           </div>
         </a>
       );
+
     case "audio":
       return (
         <div className="mb-2">
-          <audio
-            src={blobUrl || ""}
-            controls
-            className="w-full"
-            preload="none"
-          />
+          <audio src={url} controls className="w-full" preload="none" />
         </div>
       );
+
     default:
       return (
         <a
-          href={blobUrl || ""}
-          download={mediaData.name}
+          href={url}
+          download={name}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-block px-3 py-2 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
@@ -247,7 +300,6 @@ export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
 // export default MediaRenderer;
 
 const MessageItem = memo(({ message }: { message: Message }) => {
-  // 🔁 Determine media type and data
   const mediaType = message.image
     ? "image"
     : message.video
@@ -258,7 +310,7 @@ const MessageItem = memo(({ message }: { message: Message }) => {
     ? "audio"
     : null;
 
-  const mediaData =
+  const mediaData: MediaData | undefined =
     message.image || message.video || message.document || message.audio;
 
   return (
@@ -274,18 +326,104 @@ const MessageItem = memo(({ message }: { message: Message }) => {
             : "bg-white text-gray-800 rounded-bl-none border border-gray-200"
         }`}
       >
-        {mediaData && mediaType && (
+        {/* {mediaType && mediaData && mediaData.url && (
           <MediaRenderer
             mediaData={{
-              ...mediaData,
               type: mediaType,
-              url: mediaData.url ?? "",
+              url: mediaData.url,
+              name: mediaData.name,
+              size: mediaData.size,
             }}
           />
+        )} */}
+
+        {/* Image media rendering */}
+        {message.type === "image" && message.image && (
+          <div className="mt-2">
+            {(() => {
+              // console.log("📸 Image URL:", message.image.url); // ✅ LOG URL HERE
+              return null;
+            })()}
+            {message.image.url ? (
+              <img
+                src={message.image.url}
+                alt="Chat image"
+                className="rounded-md max-h-64 object-contain mx-auto border border-gray-200"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder-image.jpg"; // Fallback for broken images
+                  e.currentTarget.alt = "Failed to load image";
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center bg-gray-100 rounded-md h-64">
+                <Spinner className="h-6 w-6 text-blue-500" />
+              </div>
+            )}
+          </div>
         )}
-        {message.text.body && (
-          <div className="text-sm">{message.text.body}</div>
+
+        {/* Video media rendering */}
+        {message.type === "video" && message.video && (
+          <div className="mt-2">
+            {(() => {
+              // console.log("🎥 Video URL:", message.video.url); // ✅ LOG VIDEO URL HERE
+              return null;
+            })()}
+            {message.video.url ? (
+              <video
+                src={message.video.url}
+                controls
+                className="rounded-md max-h-64 object-contain mx-auto border border-gray-200"
+                onError={(e) => {
+                  console.error(
+                    "❌ Failed to load video:",
+                    e.currentTarget.src
+                  );
+                  e.currentTarget.poster = "/placeholder-video.jpg"; // Optional: fallback poster
+                }}
+              />
+            ) : (
+              <div className="flex items-center justify-center bg-gray-100 rounded-md h-64">
+                <Spinner className="h-6 w-6 text-blue-500" />
+              </div>
+            )}
+          </div>
         )}
+
+        {/* Document media rendering */}
+        {message.type === "document" && message.document && (
+          <div className="mt-2">
+            {(() => {
+              // console.log("📄 Document URL:", message.document.url); // ✅ LOG DOCUMENT URL HERE
+              return null;
+            })()}
+            {message.document.url ? (
+              <a
+                href={message.document.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center p-3 bg-gray-100 rounded-md border border-gray-200 hover:bg-gray-200 transition-colors"
+              >
+                <FaFileAlt className="text-blue-500 mr-2" />
+                <span className="text-sm font-medium text-blue-700 truncate">
+                  {message.document.name || "Document"}
+                </span>
+              </a>
+            ) : (
+              <div className="flex items-center justify-center bg-gray-100 rounded-md h-16 px-4">
+                <Spinner className="h-5 w-5 text-blue-500 mr-2" />
+                <span className="text-sm text-gray-500">
+                  Loading document...
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {message.text?.body &&
+          !["Image", "Video", "Document", "Audio"].includes(
+            message.text.body
+          ) && <div className="text-sm">{message.text.body}</div>}
         <div className="flex justify-end items-center mt-1">
           {message.direction === "outgoing" && (
             <>

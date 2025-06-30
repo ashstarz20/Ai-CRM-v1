@@ -158,10 +158,10 @@ const Sidebar: React.FC<SidebarProps> = ({ closeSidebar }) => {
                   <FcGoogle className="mr-3 h-4 w-4" />
                   Google
                 </NavLink>
-                <NavLink to="/dashboard/campaigns/whatsapp" className={({ isActive }) => getNavLinkClass(isActive)}>
+                {/* <NavLink to="/dashboard/campaigns/whatsapp" className={({ isActive }) => getNavLinkClass(isActive)}>
                   <FaWhatsapp className="mr-3 h-4 w-4 text-green-500" />
                   WhatsApp
-                </NavLink>
+                </NavLink> */}
               </div>
             </div>
           </div>

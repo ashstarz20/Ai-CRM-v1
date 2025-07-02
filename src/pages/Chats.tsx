@@ -12,12 +12,10 @@ import {
   subscribeMessages,
   sendWhatsAppMessage,
   MediaType,
-  fetchMediaById,
 } from "../services/firebase";
 import { updateDoc } from "firebase/firestore";
 import { format, isToday, isYesterday } from "date-fns";
 import {
-  // FaFilePdf,
   FaFileAlt,
   FaPaperclip,
   FaSmile,
@@ -26,20 +24,12 @@ import {
   FaImage,
   FaVideo,
   FaFileAudio,
-  // FaAddressBook,
 } from "react-icons/fa";
 import EmojiPicker, { EmojiStyle, Theme } from "emoji-picker-react";
 import { uploadMediaToWhatsApp } from "../services/firebase";
 import { getAuth } from "firebase/auth";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../services/firebase";
-// import { fetchMedia } from "../services/firebase";
-
-// import { useEffect, useState, memo } from "react";
-// import { fetchMedia } from "../services/firebase";
-// import { Spinner } from "./Spinner";
-// import { FaFileAlt } from "react-icons/fa";
-// import { formatFileSize } from "../utils";
 
 const getInitials = (name: string) => {
   if (!name) return "?";
@@ -104,7 +94,6 @@ const SkeletonLoader = ({ count = 5 }: { count?: number }) => (
   </div>
 );
 
-// Update the MediaData interface
 interface MediaData {
   type: MediaType;
   id?: string;
@@ -114,103 +103,9 @@ interface MediaData {
   size?: number;
 }
 
-// Update the MediaRenderer component
-// export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
-//   // Use the direct URL from the API response
-//   const url = mediaData.url;
-
-//   if (!url) {
-//     return (
-//       <div className="text-yellow-700 text-sm p-3 bg-yellow-50 border border-yellow-300 rounded-md shadow-sm">
-//         ⚠️ This media preview feature is under development and will be available
-//         in a future update.
-//       </div>
-//     );
-//   }
-
-//   switch (mediaData.type) {
-//     case "image":
-//       return (
-//         <div className="mb-2">
-//           <img
-//             src={url}
-//             alt={mediaData.name || "Image"}
-//             className="max-w-full max-h-48 rounded-lg object-contain bg-gray-100"
-//             loading="lazy"
-//           />
-//         </div>
-//       );
-//     case "video":
-//       return (
-//         <div className="mb-2">
-//           <video
-//             src={url}
-//             controls
-//             className="max-w-full max-h-48 rounded-lg bg-black"
-//             preload="metadata"
-//           >
-//             Your browser does not support the video tag.
-//           </video>
-//         </div>
-//       );
-//     case "document":
-//       return (
-//         <a
-//           href={url}
-//           download={mediaData.name}
-//           target="_blank"
-//           rel="noopener noreferrer"
-//           className="flex items-center p-3 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
-//         >
-//           <FaFileAlt className="text-blue-500 text-xl mr-2" />
-//           <div>
-//             <div className="text-sm font-medium truncate max-w-xs">
-//               {mediaData.name || "Document"}
-//             </div>
-//             {mediaData.size && (
-//               <div className="text-xs text-gray-500">
-//                 {formatFileSize(mediaData.size)}
-//               </div>
-//             )}
-//           </div>
-//         </a>
-//       );
-//     case "audio":
-//       return (
-//         <div className="mb-2">
-//           <audio
-//             src={url} // Use the direct URL
-//             controls
-//             className="w-full"
-//             preload="none"
-//           />
-//         </div>
-//       );
-//     default:
-//       return (
-//         <a
-//           href={url}
-//           download={mediaData.name}
-//           target="_blank"
-//           rel="noopener noreferrer"
-//           className="inline-block px-3 py-2 bg-gray-100 rounded-lg mb-2 hover:bg-gray-200 transition"
-//         >
-//           Download file
-//         </a>
-//       );
-//   }
-// });
-
 export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
   const { type, url, name, size } = mediaData;
 
-  // if (!url) {
-  //   return (
-  //     <div className="text-yellow-700 text-sm p-3 bg-yellow-50 border border-yellow-300 rounded-md shadow-sm">
-  //       ⚠️ This media preview feature is under development and will be available in a future update.
-  //     </div>
-  //   );
-  // }
   if (!url) {
     return (
       <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
@@ -297,21 +192,44 @@ export const MediaRenderer = memo(({ mediaData }: { mediaData: MediaData }) => {
   }
 });
 
-// export default MediaRenderer;
-
 const MessageItem = memo(({ message }: { message: Message }) => {
-  const mediaType = message.image
-    ? "image"
-    : message.video
-    ? "video"
-    : message.document
-    ? "document"
-    : message.audio
-    ? "audio"
-    : null;
-
-  const mediaData: MediaData | undefined =
-    message.image || message.video || message.document || message.audio;
+  const mediaData = useMemo(() => {
+    if (message.image) {
+      return {
+        type: 'image' as MediaType,
+        url: message.image.url,
+        name: message.image.name,
+        size: message.image.size,
+      };
+    } else if (message.video) {
+      return {
+        type: 'video' as MediaType,
+        url: message.video.url,
+        name: message.video.name,
+        size: message.video.size,
+      };
+    } else if (message.document) {
+      return {
+        type: 'document' as MediaType,
+        url: message.document.url,
+        name: message.document.name,
+        size: message.document.size,
+      };
+    } else if (message.audio) {
+      return {
+        type: 'audio' as MediaType,
+        url: message.audio.url,
+        name: message.audio.name,
+        size: message.audio.size,
+      };
+    }
+    return null;
+  }, [
+    message.image,
+    message.video,
+    message.document,
+    message.audio,
+  ]);
 
   return (
     <div
@@ -326,98 +244,8 @@ const MessageItem = memo(({ message }: { message: Message }) => {
             : "bg-white text-gray-800 rounded-bl-none border border-gray-200"
         }`}
       >
-        {/* {mediaType && mediaData && mediaData.url && (
-          <MediaRenderer
-            mediaData={{
-              type: mediaType,
-              url: mediaData.url,
-              name: mediaData.name,
-              size: mediaData.size,
-            }}
-          />
-        )} */}
-
-        {/* Image media rendering */}
-        {message.type === "image" && message.image && (
-          <div className="mt-2">
-            {(() => {
-              // console.log("📸 Image URL:", message.image.url); // ✅ LOG URL HERE
-              return null;
-            })()}
-            {message.image.url ? (
-              <img
-                src={message.image.url}
-                alt="Chat image"
-                className="rounded-md max-h-64 object-contain mx-auto border border-gray-200"
-                onError={(e) => {
-                  e.currentTarget.src = "/placeholder-image.jpg"; // Fallback for broken images
-                  e.currentTarget.alt = "Failed to load image";
-                }}
-              />
-            ) : (
-              <div className="flex items-center justify-center bg-gray-100 rounded-md h-64">
-                <Spinner className="h-6 w-6 text-blue-500" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Video media rendering */}
-        {message.type === "video" && message.video && (
-          <div className="mt-2">
-            {(() => {
-              // console.log("🎥 Video URL:", message.video.url); // ✅ LOG VIDEO URL HERE
-              return null;
-            })()}
-            {message.video.url ? (
-              <video
-                src={message.video.url}
-                controls
-                className="rounded-md max-h-64 object-contain mx-auto border border-gray-200"
-                onError={(e) => {
-                  console.error(
-                    "❌ Failed to load video:",
-                    e.currentTarget.src
-                  );
-                  e.currentTarget.poster = "/placeholder-video.jpg"; // Optional: fallback poster
-                }}
-              />
-            ) : (
-              <div className="flex items-center justify-center bg-gray-100 rounded-md h-64">
-                <Spinner className="h-6 w-6 text-blue-500" />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Document media rendering */}
-        {message.type === "document" && message.document && (
-          <div className="mt-2">
-            {(() => {
-              // console.log("📄 Document URL:", message.document.url); // ✅ LOG DOCUMENT URL HERE
-              return null;
-            })()}
-            {message.document.url ? (
-              <a
-                href={message.document.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center p-3 bg-gray-100 rounded-md border border-gray-200 hover:bg-gray-200 transition-colors"
-              >
-                <FaFileAlt className="text-blue-500 mr-2" />
-                <span className="text-sm font-medium text-blue-700 truncate">
-                  {message.document.name || "Document"}
-                </span>
-              </a>
-            ) : (
-              <div className="flex items-center justify-center bg-gray-100 rounded-md h-16 px-4">
-                <Spinner className="h-5 w-5 text-blue-500 mr-2" />
-                <span className="text-sm text-gray-500">
-                  Loading document...
-                </span>
-              </div>
-            )}
-          </div>
+        {mediaData && (
+          <MediaRenderer mediaData={mediaData} />
         )}
 
         {message.text?.body &&
@@ -563,12 +391,10 @@ export default function Chats() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const unsubscribeChatsRef = useRef<() => void>(() => {});
   const unsubscribeMessagesRef = useRef<() => void>(() => {});
-  // Add state for error and loading
   const [connectError, setConnectError] = useState("");
   const [connecting, setConnecting] = useState(false);
   const [accountIdLoading, setAccountIdLoading] = useState(true);
 
-  // Auto-load last connected accountId
   useEffect(() => {
     const fetchConnectedWABA = async () => {
       try {
@@ -687,7 +513,7 @@ export default function Chats() {
   }, []);
 
   useEffect(() => {
-    if (!accountId) return; // Don't fetch if not set
+    if (!accountId) return;
     let isMounted = true;
     const fetchAndSubscribeChats = async () => {
       try {
@@ -788,7 +614,7 @@ export default function Chats() {
   useEffect(() => {
     setSelected(null);
     setMessages([]);
-    setChats([]); // Add this line to clear chats immediately
+    setChats([]);
   }, [accountId]);
 
   const getPhoneNumberId = async (accountId: string): Promise<string> => {
@@ -800,7 +626,7 @@ export default function Chats() {
     return data.phoneNumber;
   };
 
-  const send = async () => {
+  const send = useCallback(async () => {
     if (!selected || !draft.trim() || sending) return;
 
     let newDocRef: import("firebase/firestore").DocumentReference | null = null;
@@ -809,11 +635,10 @@ export default function Chats() {
     if (!accountId) return;
 
     try {
-      // ✅ Dynamically get the right WhatsApp Phone Number ID
       const phoneNumberId = await getPhoneNumberId(accountId);
 
       const msg: Omit<Message, "id"> = {
-        from: phoneNumberId, // ✅ Correct from ID
+        from: phoneNumberId,
         text: { body: draft.trim() },
         timestamp: Timestamp.fromDate(new Date()),
         type: "text",
@@ -824,12 +649,11 @@ export default function Chats() {
       newDocRef = await addMessageToChat(accountId, selected.id, msg);
 
       const response = await sendWhatsAppMessage(
-        phoneNumberId, // ✅ Fixed: now not undefined
+        phoneNumberId,
         selected.contact.phone,
         draft.trim()
       );
 
-      // ✅ Update Firestore with response message ID
       await updateDoc(newDocRef, {
         status: "sent",
         id: response.id,
@@ -845,9 +669,9 @@ export default function Chats() {
     } finally {
       setSending(false);
     }
-  };
+  }, [accountId, draft, selected, sending]);
 
-  const clearChat = async () => {
+  const clearChat = useCallback(async () => {
     if (!selected || clearingChat) return;
     setClearingChat(true);
 
@@ -865,7 +689,7 @@ export default function Chats() {
       setClearingChat(false);
       setShowMenu(false);
     }
-  };
+  }, [accountId, selected, clearingChat]);
 
   const groupedMessages = useMemo(() => {
     const groups: { [key: string]: Message[] } = {};
@@ -877,126 +701,96 @@ export default function Chats() {
     return groups;
   }, [messages]);
 
-  const onEmojiClick = (
-    emojiData: import("emoji-picker-react").EmojiClickData
-  ) => {
-    setDraft(draft + emojiData.emoji);
-  };
+  const onEmojiClick = useCallback(
+    (emojiData: import("emoji-picker-react").EmojiClickData) => {
+      setDraft(draft + emojiData.emoji);
+    },
+    [draft]
+  );
 
-  const toggleAttachmentMenu = () => {
+  const toggleAttachmentMenu = useCallback(() => {
     setShowAttachmentMenu(!showAttachmentMenu);
     setShowEmojiPicker(false);
-  };
+  }, [showAttachmentMenu]);
 
-  const toggleEmojiPicker = () => {
+  const toggleEmojiPicker = useCallback(() => {
     setShowEmojiPicker(!showEmojiPicker);
     setShowAttachmentMenu(false);
-  };
+  }, [showEmojiPicker]);
 
-  const openAttachmentDialog = (type: MediaType) => {
+  const openAttachmentDialog = useCallback((type: MediaType) => {
     setAttachmentDialog(type);
     setShowAttachmentMenu(false);
-  };
+  }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
       setFileName(file.name);
     }
-  };
+  }, []);
 
-  const triggerFileInput = () => {
+  const triggerFileInput = useCallback(() => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
-  };
+  }, []);
 
-  // const uploadAndSend = async () => {
-  //   if (!selected || !selectedFile || !attachmentDialog) return;
+  const getDialogTitle = useCallback(() => {
+    switch (attachmentDialog) {
+      case "image":
+        return "Upload Image";
+      case "video":
+        return "Upload Video";
+      case "audio":
+        return "Upload Audio";
+      case "document":
+        return "Upload PDF";
+      default:
+        return "Upload File";
+    }
+  }, [attachmentDialog]);
 
-  //   setUploading(true);
-  //   let newDocRef: any = null;
+  const getAcceptAttribute = useCallback(() => {
+    switch (attachmentDialog) {
+      case "image":
+        return "image/*";
+      case "video":
+        return "video/*";
+      case "audio":
+        return "audio/*";
+      case "document":
+        return "application/pdf";
+      default:
+        return "*";
+    }
+  }, [attachmentDialog]);
 
-  //   try {
-  //     // Upload file to Firebase Storage
-  //     const downloadURL = await uploadFile(
-  //       selectedFile,
-  //       `media/${selected.id}/${Date.now()}_${selectedFile.name}`
-  //     );
+  const getDialogIcon = useCallback(() => {
+    switch (attachmentDialog) {
+      case "image":
+        return <FaImage className="text-blue-500 text-xl mr-2" />;
+      case "video":
+        return <FaVideo className="text-blue-500 text-xl mr-2" />;
+      case "audio":
+        return <FaFileAudio className="text-blue-500 text-xl mr-2" />;
+      case "document":
+        return <FaFileAlt className="text-blue-500 text-xl mr-2" />;
+      default:
+        return <FaUpload className="text-blue-500 text-xl mr-2" />;
+    }
+  }, [attachmentDialog]);
 
-  //     // Create message payload
-  //     const msg: Omit<Message, "id"> = {
-  //       from: "917710945924", // Using number ID
-  //       text: { body: "" },
-  //       timestamp: Timestamp.fromDate(new Date()),
-  //       type: attachmentDialog,
-  //       direction: "outgoing",
-  //       status: "sending",
-  //       media: {
-  //         type: attachmentDialog,
-  //         url: downloadURL,
-  //         name: selectedFile.name,
-  //         size: selectedFile.size,
-  //       },
-  //     };
-
-  //     // Add message to Firestore
-  //     newDocRef = await addMessageToChat(accountId, selected.id, msg);
-
-  //     // Map media types to WhatsApp supported types
-  //     const whatsappMediaTypeMap: Record<
-  //       MediaType,
-  //       "image" | "video" | "document" | "audio"
-  //     > = {
-  //       image: "image",
-  //       video: "video",
-  //       pdf: "document",
-  //       audio: "audio", // Fallback to document for contacts
-  //     };
-
-  //     const whatsappType = whatsappMediaTypeMap[attachmentDialog];
-
-  //     // Send media via WhatsApp API
-  //     const response = await sendWhatsAppMessage(
-  //       "570983109425469",
-  //       selected.contact.phone,
-  //       undefined,
-  //       {
-  //         type: whatsappType,
-  //         url: downloadURL,
-  //         filename: selectedFile.name,
-  //       }
-  //     );
-
-  //     // Update Firestore message with WhatsApp response
-  //     await updateDoc(newDocRef, {
-  //       status: "sent",
-  //       id: response.id,
-  //     });
-
-  //     setAttachmentDialog(null);
-  //     setSelectedFile(null);
-  //     setFileName("");
-  //   } catch (err) {
-  //     console.error("Error sending media:", err);
-  //     if (newDocRef) {
-  //       await updateDoc(newDocRef, { status: "failed" });
-  //     }
-  //   } finally {
-  //     setUploading(false);
-  //   }
-  // };
-
-  const uploadAndSend = async () => {
+  const uploadAndSend = useCallback(async () => {
     if (!selected || !selectedFile || !attachmentDialog || !accountId) return;
 
     setUploading(true);
     let newDocRef: import("firebase/firestore").DocumentReference | null = null;
 
-    if (!accountId) return;
-
     try {
+      const phoneNumberId = await getPhoneNumberId(accountId);
+
       const whatsappMediaTypeMap: Record<
         MediaType,
         "image" | "video" | "document" | "audio"
@@ -1010,26 +804,38 @@ export default function Chats() {
       const whatsappType = whatsappMediaTypeMap[attachmentDialog];
 
       const mediaId = await uploadMediaToWhatsApp(
-        "570983109425469",
+        phoneNumberId,
         selectedFile,
         selectedFile.type
       );
 
-      const mediaMeta = await fetchMediaById(mediaId);
+      const response = await fetch(
+        "https://asia-south1-starzapp.cloudfunctions.net/crm-media-url-receiver/cacheWhatsAppMedia",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mediaId, mediaType: whatsappType }),
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to get permanent URL from webhook');
+      }
+      
+      const result = await response.json();
+      const permanentUrl = result.downloadUrl;
 
       const msg: Omit<Message, "id"> = {
-        from: "917710945924",
+        from: phoneNumberId,
         text: { body: "" },
         timestamp: Timestamp.fromDate(new Date()),
         type: attachmentDialog,
         direction: "outgoing",
         status: "sending",
         [attachmentDialog]: {
-          // 🔁 Dynamic property based on media type
           id: mediaId,
-          url: mediaMeta.url,
-          mime_type: mediaMeta.mime_type,
-          sha256: mediaMeta.sha256,
+          url: permanentUrl,
+          mime_type: selectedFile.type,
           name: selectedFile.name,
           size: selectedFile.size,
         },
@@ -1037,8 +843,8 @@ export default function Chats() {
 
       newDocRef = await addMessageToChat(accountId, selected.id, msg);
 
-      const response = await sendWhatsAppMessage(
-        "570983109425469",
+      const sendResponse = await sendWhatsAppMessage(
+        phoneNumberId,
         selected.contact.phone,
         undefined,
         {
@@ -1051,7 +857,7 @@ export default function Chats() {
 
       await updateDoc(newDocRef, {
         status: "sent",
-        id: response.id,
+        id: sendResponse.id,
       });
 
       setAttachmentDialog(null);
@@ -1065,52 +871,7 @@ export default function Chats() {
     } finally {
       setUploading(false);
     }
-  };
-
-  const getDialogTitle = () => {
-    switch (attachmentDialog) {
-      case "image":
-        return "Upload Image";
-      case "video":
-        return "Upload Video";
-      case "audio":
-        return "Upload Audio";
-      case "document":
-        return "Upload PDF";
-      default:
-        return "Upload File";
-    }
-  };
-
-  const getAcceptAttribute = () => {
-    switch (attachmentDialog) {
-      case "image":
-        return "image/*";
-      case "video":
-        return "video/*";
-      case "audio":
-        return "audio/*";
-      case "document":
-        return "application/pdf";
-      default:
-        return "*";
-    }
-  };
-
-  const getDialogIcon = () => {
-    switch (attachmentDialog) {
-      case "image":
-        return <FaImage className="text-blue-500 text-xl mr-2" />;
-      case "video":
-        return <FaVideo className="text-blue-500 text-xl mr-2" />;
-      case "audio":
-        return <FaFileAudio className="text-blue-500 text-xl mr-2" />;
-      case "document":
-        return <FaFileAlt className="text-blue-500 text-xl mr-2" />;
-      default:
-        return <FaUpload className="text-blue-500 text-xl mr-2" />;
-    }
-  };
+  }, [accountId, selected, selectedFile, attachmentDialog]);
 
   if (showAccountModal) {
     const handleConnect = async () => {
@@ -1123,14 +884,12 @@ export default function Chats() {
           setConnecting(false);
           return;
         }
-        // Check if account exists
         const accDoc = await getDoc(doc(db, `accounts/${enteredId}`));
         if (!accDoc.exists()) {
           setConnectError("Account ID not found.");
           setConnecting(false);
           return;
         }
-        // Get current user phone number
         const auth = getAuth();
         const user = auth.currentUser;
         if (!user || !user.phoneNumber) {
@@ -1139,7 +898,6 @@ export default function Chats() {
           return;
         }
         const phoneNumber = user.phoneNumber.replace(/[^\d]/g, "");
-        // Update user's connectedWABA
         await setDoc(
           doc(db, `crm_users/${phoneNumber}`),
           { connectedWABA: enteredId },
@@ -1481,7 +1239,7 @@ export default function Chats() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                           />
                         </svg>
                         Image
@@ -1524,25 +1282,6 @@ export default function Chats() {
                         </svg>
                         Audio
                       </button>
-                      {/* <button
-                        onClick={() => openAttachmentDialog("contact")}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 flex items-center"
-                      >
-                        <svg
-                          className="h-4 w-4 text-gray-500 mr-2"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                          />
-                        </svg>
-                        Contact
-                      </button> */}
                     </div>
                   )}
                 </div>
@@ -1550,6 +1289,7 @@ export default function Chats() {
                 <button
                   onClick={toggleEmojiPicker}
                   className="p-2 rounded-full hover:bg-gray-100 transition mr-1"
+                  aria-label="Emoji picker"
                 >
                   <FaSmile className="h-4 w-4 text-gray-500" />
                 </button>
@@ -1570,6 +1310,7 @@ export default function Chats() {
                       ? "bg-blue-500 hover:bg-blue-600"
                       : "bg-gray-200 cursor-not-allowed"
                   }`}
+                  aria-label="Send message"
                 >
                   {sending ? (
                     <Spinner className="h-4 w-4 text-white" />

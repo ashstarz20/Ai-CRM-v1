@@ -23,6 +23,60 @@ const Meta = () => {
   const [selectedDuration, setSelectedDuration] = useState("1 Week");
   const [campaignLaunched, setCampaignLaunched] = useState(false);
 
+  const handlePayNow = async () => {
+    const txnid = "TXN" + Date.now(); // Or use a UUID
+    const productinfo = "Meta Campaign";
+    const firstname = "Ashish"; // or collect from user
+    const email = "ashish@example.com"; // optional
+    const phone = "9999999999"; // optional
+
+    const surl =
+      "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success";
+    const furl =
+      "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure";
+
+    try {
+      const res = await fetch(
+        "https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/payment",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            txnid,
+            amount: amount.toFixed(2),
+            firstname,
+            email,
+            phone,
+            productinfo,
+            surl,
+            furl,
+          }),
+        }
+      );
+
+      const { paymentUrl, payload } = await res.json();
+
+      // Create a hidden form and submit it to PayU
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = paymentUrl;
+
+      for (const key in payload) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = payload[key];
+        form.appendChild(input);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (error) {
+      console.error("Payment Error:", error);
+      alert("Something went wrong during payment. Please try again.");
+    }
+  };
+
   const handleAmountChange = (val: number | number[]) => {
     const value = Array.isArray(val) ? val[0] : val;
     setAmount(value);
@@ -197,7 +251,7 @@ const Meta = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 12
+            Campaign Summary 13
           </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details
@@ -261,7 +315,7 @@ const Meta = () => {
 
         <div className="mt-8 pt-6 border-t border-gray-200">
           <motion.button
-            onAbort={handlePayNow}
+            onClick={handlePayNow}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
@@ -277,60 +331,6 @@ const Meta = () => {
         </div>
       </motion.div>
     );
-  };
-
-  const handlePayNow = async () => {
-    const txnid = "TXN" + Date.now(); // Or use a UUID
-    const productinfo = "Meta Campaign";
-    const firstname = "Ashish"; // or collect from user
-    const email = "ashish@example.com"; // optional
-    const phone = "9999999999"; // optional
-
-    const surl =
-      "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success";
-    const furl =
-      "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure";
-
-    try {
-      const res = await fetch(
-        "https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/payment",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            txnid,
-            amount: amount.toFixed(2),
-            firstname,
-            email,
-            phone,
-            productinfo,
-            surl,
-            furl,
-          }),
-        }
-      );
-
-      const { paymentUrl, payload } = await res.json();
-
-      // Create a hidden form and submit it to PayU
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = paymentUrl;
-
-      for (const key in payload) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = payload[key];
-        form.appendChild(input);
-      }
-
-      document.body.appendChild(form);
-      form.submit();
-    } catch (error) {
-      console.error("Payment Error:", error);
-      alert("Something went wrong during payment. Please try again.");
-    }
   };
 
   return (

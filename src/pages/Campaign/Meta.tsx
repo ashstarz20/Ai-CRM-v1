@@ -73,8 +73,8 @@ const Meta = () => {
       udf8: "",
       udf9: "",
       udf10: "",
-      surl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success",
-      furl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure",
+      surl: "https://asia-south1-starzapp.cloudfunctions.net/payuWebhook/success",
+      furl: "https://asia-south1-starzapp.cloudfunctions.net/payuWebhook/failure",
       hash,
       service_provider: "payu_paisa",
     };

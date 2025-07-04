@@ -79,6 +79,8 @@ const Meta = () => {
       service_provider: "payu_paisa",
     };
 
+    console.log("Form parameters:", payuParams);
+
     const form = document.createElement("form");
     form.method = "POST";
     form.action = "https://secure.payu.in/_payment"; // Use sandbox URL for testing

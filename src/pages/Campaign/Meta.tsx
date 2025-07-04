@@ -43,7 +43,8 @@ const Meta = () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             txnid,
-            amount: amount.toFixed(2),
+            // amount: amount.toFixed(2),
+            amount: 1.0,
             firstname,
             email,
             phone,
@@ -251,7 +252,7 @@ const Meta = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 13
+            Campaign Summary 14
           </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details

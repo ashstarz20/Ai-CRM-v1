@@ -31,9 +31,10 @@ const Meta = () => {
     const amountStr = amount.toFixed(2);
     const productinfo = "Meta Campaign Budget";
     const firstname = "Ashish";
-    const email = "ashish@example.com";
-    const phone = "9123456789";
+    const email = "tech@starzventures.in";
+    const phone = "917715009983";
 
+    // Updated 15-field array
     const hashArr = [
       key,
       txnid,
@@ -41,16 +42,14 @@ const Meta = () => {
       productinfo,
       firstname,
       email,
-      "",
-      "",
-      "",
-      "",
-      "", // udf1–udf5
-      "",
-      "",
-      "",
-      "", // udf6–udf10
-      salt,
+      "", // udf1
+      "", // udf2
+      "", // udf3
+      "", // udf4
+      "", // udf5
+      "", // Empty field 1
+      "", // Empty field 2
+      salt, // Salt at position 14
     ];
 
     const hashString = hashArr.join("|");
@@ -70,16 +69,6 @@ const Meta = () => {
       firstname,
       email,
       phone,
-      udf1: "",
-      udf2: "",
-      udf3: "",
-      udf4: "",
-      udf5: "",
-      udf6: "",
-      udf7: "",
-      udf8: "",
-      udf9: "",
-      udf10: "",
       surl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success",
       furl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure",
       hash,

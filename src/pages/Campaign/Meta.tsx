@@ -2,12 +2,19 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
+import CryptoJS from "crypto-js";
 
 const costPerLead = 250;
 const minAmount = 5000;
 const maxAmount = 100000;
 
-const durationOptions = ["1 Week", "2 Weeks", "1 Month", "2 Months", "3 Months"];
+const durationOptions = [
+  "1 Week",
+  "2 Weeks",
+  "1 Month",
+  "2 Months",
+  "3 Months",
+];
 const steps = ["Budget & Leads", "Duration"];
 
 const Meta = () => {
@@ -16,6 +23,79 @@ const Meta = () => {
   const [leads, setLeads] = useState(Math.floor(amount / costPerLead));
   const [selectedDuration, setSelectedDuration] = useState("1 Week");
   const [campaignLaunched, setCampaignLaunched] = useState(false);
+
+  const handlePayNow = () => {
+    const key = "a6Xcue";
+    const txnid = `TXN${Date.now()}`;
+    const amountStr = amount.toFixed(2);
+    const productinfo = "Meta Campaign Budget";
+    const firstname = "Test User";
+    const email = "test@example.com";
+    const salt = "RFlTn0l13mjzGQvCyEhDJwQuD1cjKa7e";
+    const phone = "9123456789";
+
+    // ⛳ CORRECT FORMAT — 16 fields
+    const hashString = [
+      key,
+      txnid,
+      amountStr,
+      productinfo,
+      firstname,
+      email,
+      "",
+      "",
+      "",
+      "",
+      "", // udf1 to udf5
+      "",
+      "",
+      "",
+      "", // udf6 to udf10
+      salt,
+    ].join("|");
+
+    const hash = CryptoJS.SHA512(hashString).toString();
+
+    const payuParams = {
+      key,
+      txnid,
+      amount: amountStr,
+      productinfo,
+      firstname,
+      email,
+      phone,
+      surl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success",
+      furl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure",
+      hash,
+      udf1: "",
+      udf2: "",
+      udf3: "",
+      udf4: "",
+      udf5: "",
+      udf6: "",
+      udf7: "",
+      udf8: "",
+      udf9: "",
+      udf10: "",
+      service_provider: "payu_paisa",
+    };
+
+    // Submit the form to PayU
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "https://secure.payu.in/_payment"; // or sandbox URL for testing
+
+    Object.entries(payuParams).forEach(([key, value]) => {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+  };
 
   const handleAmountChange = (val: number | number[]) => {
     const value = Array.isArray(val) ? val[0] : val;
@@ -33,7 +113,8 @@ const Meta = () => {
     setAmount(cappedLeads * costPerLead);
   };
 
-  const nextStep = () => setStep((prev) => Math.min(prev + 1, steps.length - 1));
+  const nextStep = () =>
+    setStep((prev) => Math.min(prev + 1, steps.length - 1));
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 0));
 
   const launchCampaign = () => {
@@ -53,12 +134,14 @@ const Meta = () => {
             className="space-y-8"
           >
             <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-800 mb-2">💰 Set Your Budget</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-2">
+                💰 Set Your Budget
+              </h2>
               <div className="text-3xl font-bold text-blue-600">
                 ₹{amount.toLocaleString()}
               </div>
             </div>
-            
+
             <div className="space-y-6">
               <Slider
                 min={minAmount}
@@ -67,25 +150,27 @@ const Meta = () => {
                 value={amount}
                 onChange={handleAmountChange}
                 trackStyle={{ backgroundColor: "#3b82f6", height: 10 }}
-                handleStyle={{ 
+                handleStyle={{
                   borderColor: "#3b82f6",
                   borderWidth: 3,
                   height: 28,
                   width: 28,
                   backgroundColor: "white",
-                  boxShadow: "0 4px 6px rgba(0,0,0,0.1)"
+                  boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
                 }}
                 railStyle={{ height: 10, backgroundColor: "#e5e7eb" }}
               />
-              
+
               <div className="flex justify-between text-gray-600 text-sm">
                 <span>₹{minAmount.toLocaleString()}</span>
                 <span>₹{maxAmount.toLocaleString()}</span>
               </div>
             </div>
-            
+
             <div className="pt-4 border-t border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">🎯 Estimated Leads</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
+                🎯 Estimated Leads
+              </h2>
               <div className="flex justify-center">
                 <input
                   type="number"
@@ -113,7 +198,9 @@ const Meta = () => {
             className="space-y-8"
           >
             <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">⏳ Campaign Duration</h2>
+              <h2 className="text-xl font-bold text-gray-800 mb-6">
+                ⏳ Campaign Duration
+              </h2>
               <div className="grid grid-cols-2 gap-4">
                 {durationOptions.map((duration) => (
                   <motion.div
@@ -133,7 +220,8 @@ const Meta = () => {
               </div>
               <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
                 <p className="text-blue-800 font-medium">
-                  Selected: <span className="font-bold">{selectedDuration}</span>
+                  Selected:{" "}
+                  <span className="font-bold">{selectedDuration}</span>
                 </p>
               </div>
             </div>
@@ -154,8 +242,11 @@ const Meta = () => {
     const totalAmount = taxableAmount + gst;
 
     // Format currency
-    const formatCurrency = (value: number) => 
-      `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const formatCurrency = (value: number) =>
+      `₹${value.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
 
     return (
       <motion.div
@@ -166,8 +257,17 @@ const Meta = () => {
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-8 w-8 text-blue-600"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                clipRule="evenodd"
+              />
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">Campaign Summary</h2>
@@ -175,7 +275,7 @@ const Meta = () => {
             Review and confirm your campaign details
           </p>
         </div>
-        
+
         <div className="mb-8 bg-gray-50 rounded-lg p-6 border border-gray-200">
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
@@ -196,8 +296,10 @@ const Meta = () => {
             </div> */}
           </div>
         </div>
-        
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">Amount Breakup</h3>
+
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          Amount Breakup
+        </h3>
         <div className="space-y-3 mb-6">
           <div className="flex justify-between border-b pb-2">
             <span className="text-gray-600">Amount:</span>
@@ -213,27 +315,32 @@ const Meta = () => {
           </div>
           <div className="flex justify-between border-b pb-2">
             <span className="text-gray-600">Professional Fees (10%):</span>
-            <span className="font-medium">{formatCurrency(professionalFees)}</span>
+            <span className="font-medium">
+              {formatCurrency(professionalFees)}
+            </span>
           </div>
           <div className="flex justify-between border-b pb-2">
             <span className="text-gray-600">GST (18%):</span>
-            <span className="font-medium text-red-600">{formatCurrency(gst)}</span>
+            <span className="font-medium text-red-600">
+              {formatCurrency(gst)}
+            </span>
           </div>
           <div className="flex justify-between pt-2 font-semibold text-lg">
             <span className="text-gray-800">Total Amount:</span>
             <span className="text-blue-700">{formatCurrency(totalAmount)}</span>
           </div>
         </div>
-        
+
         <div className="mt-8 pt-6 border-t border-gray-200">
           <motion.button
+            onClick={handlePayNow}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
           >
             Pay Now
           </motion.button>
-          <button 
+          <button
             onClick={() => setCampaignLaunched(false)}
             className="mt-3 text-blue-600 hover:text-blue-800 font-medium text-sm"
           >
@@ -259,11 +366,11 @@ const Meta = () => {
               animate={{ opacity: 1 }}
             >
               <div className="absolute top-4 left-0 right-0 h-1 bg-gray-200 z-0"></div>
-              <div 
+              <div
                 className="absolute top-4 left-0 h-1 bg-blue-600 z-10 transition-all duration-500 ease-out"
                 style={{ width: `${(step / (steps.length - 1)) * 100}%` }}
               ></div>
-              
+
               <div className="flex justify-between relative z-20">
                 {steps.map((label, index) => (
                   <div key={index} className="flex flex-col items-center">
@@ -278,7 +385,9 @@ const Meta = () => {
                     </div>
                     <p
                       className={`text-sm font-medium max-w-[120px] text-center px-1 ${
-                        index === step ? "text-blue-600 font-bold" : "text-gray-500"
+                        index === step
+                          ? "text-blue-600 font-bold"
+                          : "text-gray-500"
                       }`}
                     >
                       {label}
@@ -311,7 +420,7 @@ const Meta = () => {
               >
                 <span className="mr-2 text-lg">←</span> Back
               </button>
-              
+
               {step < steps.length - 1 ? (
                 <button
                   onClick={nextStep}

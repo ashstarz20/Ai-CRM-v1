@@ -69,8 +69,8 @@ const Meta = () => {
       firstname,
       email,
       phone,
-      surl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success",
-      furl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure",
+      surl: "https://asia-south1-starzapp.cloudfunctions.net/payuWebhook/success",
+      furl: "https://asia-south1-starzapp.cloudfunctions.net/payuWebhook/failure",
       hash,
       service_provider: "payu_paisa",
     };
@@ -267,7 +267,7 @@ const Meta = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 7
+            Campaign Summary 8
           </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details

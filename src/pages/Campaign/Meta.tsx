@@ -2,7 +2,6 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
-import CryptoJS from "crypto-js";
 
 const costPerLead = 250;
 const minAmount = 5000;
@@ -23,75 +22,6 @@ const Meta = () => {
   const [leads, setLeads] = useState(Math.floor(amount / costPerLead));
   const [selectedDuration, setSelectedDuration] = useState("1 Week");
   const [campaignLaunched, setCampaignLaunched] = useState(false);
-
-  const handlePayNow = () => {
-    const key = "a6Xcue";
-    const salt = "RFlTn0l13mjzGQvCyEhDJwQuD1cjKa7e";
-    const txnid = `TXN${Date.now()}`;
-    const amountStr = amount.toFixed(2);
-    const productinfo = "Meta Campaign Budget";
-    const firstname = "Ashish";
-    const email = "tech@starzventures.in";
-    const phone = "917715009983";
-
-    // Updated 15-field array
-    const hashArr = [
-      key,
-      txnid,
-      amountStr,
-      productinfo,
-      firstname,
-      email,
-      "", // udf1
-      "", // udf2
-      "", // udf3
-      "", // udf4
-      "", // udf5
-      "", // Empty field 1
-      "", // Empty field 2
-      salt, // Salt at position 14
-    ];
-
-    const hashString = hashArr.join("|");
-    const hash = CryptoJS.SHA512(hashString).toString().toLowerCase();
-
-    console.group("🔐 PayU Hash Debug");
-    hashArr.forEach((val, idx) => console.log(`Field[${idx}]: "${val}"`));
-    console.log(`Hash String Fields: ${hashArr.length}`, hashString);
-    console.log("Calculated SHA512:", hash);
-    console.groupEnd();
-
-    const payuParams = {
-      key,
-      txnid,
-      amount: amountStr,
-      productinfo,
-      firstname,
-      email,
-      phone,
-      surl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success",
-      furl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure",
-      hash,
-      service_provider: "payu_paisa",
-    };
-
-    console.table(payuParams);
-
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "https://secure.payu.in/_payment";
-
-    Object.entries(payuParams).forEach(([name, value]) => {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = name;
-      input.value = value as string;
-      form.appendChild(input);
-    });
-
-    document.body.appendChild(form);
-    form.submit();
-  };
 
   const handleAmountChange = (val: number | number[]) => {
     const value = Array.isArray(val) ? val[0] : val;
@@ -267,7 +197,7 @@ const Meta = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 11
+            Campaign Summary 12
           </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details
@@ -331,7 +261,7 @@ const Meta = () => {
 
         <div className="mt-8 pt-6 border-t border-gray-200">
           <motion.button
-            onClick={handlePayNow}
+            onAbort={handlePayNow}
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
@@ -347,6 +277,60 @@ const Meta = () => {
         </div>
       </motion.div>
     );
+  };
+
+  const handlePayNow = async () => {
+    const txnid = "TXN" + Date.now(); // Or use a UUID
+    const productinfo = "Meta Campaign";
+    const firstname = "Ashish"; // or collect from user
+    const email = "ashish@example.com"; // optional
+    const phone = "9999999999"; // optional
+
+    const surl =
+      "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success";
+    const furl =
+      "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure";
+
+    try {
+      const res = await fetch(
+        "https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/payment",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            txnid,
+            amount: amount.toFixed(2),
+            firstname,
+            email,
+            phone,
+            productinfo,
+            surl,
+            furl,
+          }),
+        }
+      );
+
+      const { paymentUrl, payload } = await res.json();
+
+      // Create a hidden form and submit it to PayU
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = paymentUrl;
+
+      for (const key in payload) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = payload[key];
+        form.appendChild(input);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (error) {
+      console.error("Payment Error:", error);
+      alert("Something went wrong during payment. Please try again.");
+    }
   };
 
   return (

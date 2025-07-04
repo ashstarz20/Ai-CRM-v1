@@ -54,7 +54,7 @@ const Meta = () => {
     ];
 
     const hashString = hashArr.join("|");
-    const hash = CryptoJS.SHA512(hashString).toString();
+    const hash = CryptoJS.SHA512(hashString).toString().toLowerCase();
 
     console.group("🔐 PayU Hash Debug");
     hashArr.forEach((val, idx) => console.log(`Field[${idx}]: "${val}"`));
@@ -278,7 +278,7 @@ const Meta = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 6
+            Campaign Summary 7
           </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details

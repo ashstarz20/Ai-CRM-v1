@@ -267,7 +267,7 @@ const Meta = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 8
+            Campaign Summary 9
           </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details

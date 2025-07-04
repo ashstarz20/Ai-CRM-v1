@@ -34,7 +34,7 @@ const Meta = () => {
     const email = "ashish@example.com";
     const phone = "9123456789";
 
-    const hashString = [
+    const hashArr = [
       key,
       txnid,
       amountStr,
@@ -45,15 +45,22 @@ const Meta = () => {
       "",
       "",
       "",
-      "", // udf1-udf5
+      "", // udf1–udf5
       "",
       "",
       "",
-      "", // udf6-udf10
+      "", // udf6–udf10
       salt,
-    ].join("|");
+    ];
 
+    const hashString = hashArr.join("|");
     const hash = CryptoJS.SHA512(hashString).toString();
+
+    console.group("🔐 PayU Hash Debug");
+    hashArr.forEach((val, idx) => console.log(`Field[${idx}]: "${val}"`));
+    console.log(`Hash String Fields: ${hashArr.length}`, hashString);
+    console.log("Calculated SHA512:", hash);
+    console.groupEnd();
 
     const payuParams = {
       key,
@@ -73,17 +80,17 @@ const Meta = () => {
       udf8: "",
       udf9: "",
       udf10: "",
-      surl: "https://asia-south1-starzapp.cloudfunctions.net/payuWebhook/success",
-      furl: "https://asia-south1-starzapp.cloudfunctions.net/payuWebhook/failure",
+      surl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success",
+      furl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure",
       hash,
       service_provider: "payu_paisa",
     };
 
-    console.log("Form parameters:", payuParams);
+    console.table(payuParams);
 
     const form = document.createElement("form");
     form.method = "POST";
-    form.action = "https://secure.payu.in/_payment"; // Use sandbox URL for testing
+    form.action = "https://secure.payu.in/_payment";
 
     Object.entries(payuParams).forEach(([name, value]) => {
       const input = document.createElement("input");
@@ -270,7 +277,9 @@ const Meta = () => {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">Campaign Summary</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Campaign Summary 6
+          </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details
           </p>

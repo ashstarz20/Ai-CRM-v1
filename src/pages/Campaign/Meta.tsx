@@ -26,15 +26,14 @@ const Meta = () => {
 
   const handlePayNow = () => {
     const key = "a6Xcue";
+    const salt = "RFlTn0l13mjzGQvCyEhDJwQuD1cjKa7e";
     const txnid = `TXN${Date.now()}`;
     const amountStr = amount.toFixed(2);
     const productinfo = "Meta Campaign Budget";
-    const firstname = "Test User";
-    const email = "test@example.com";
-    const salt = "RFlTn0l13mjzGQvCyEhDJwQuD1cjKa7e";
+    const firstname = "Ashish";
+    const email = "ashish@example.com";
     const phone = "9123456789";
 
-    // ⛳ CORRECT FORMAT — 16 fields
     const hashString = [
       key,
       txnid,
@@ -46,11 +45,11 @@ const Meta = () => {
       "",
       "",
       "",
-      "", // udf1 to udf5
+      "", // udf1-udf5
       "",
       "",
       "",
-      "", // udf6 to udf10
+      "", // udf6-udf10
       salt,
     ].join("|");
 
@@ -64,9 +63,6 @@ const Meta = () => {
       firstname,
       email,
       phone,
-      surl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success",
-      furl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure",
-      hash,
       udf1: "",
       udf2: "",
       udf3: "",
@@ -77,19 +73,21 @@ const Meta = () => {
       udf8: "",
       udf9: "",
       udf10: "",
+      surl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success",
+      furl: "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure",
+      hash,
       service_provider: "payu_paisa",
     };
 
-    // Submit the form to PayU
     const form = document.createElement("form");
     form.method = "POST";
-    form.action = "https://secure.payu.in/_payment"; // or sandbox URL for testing
+    form.action = "https://secure.payu.in/_payment"; // Use sandbox URL for testing
 
-    Object.entries(payuParams).forEach(([key, value]) => {
+    Object.entries(payuParams).forEach(([name, value]) => {
       const input = document.createElement("input");
       input.type = "hidden";
-      input.name = key;
-      input.value = value;
+      input.name = name;
+      input.value = value as string;
       form.appendChild(input);
     });
 

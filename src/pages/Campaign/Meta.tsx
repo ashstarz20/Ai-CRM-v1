@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
+import { useLocation, useNavigate } from "react-router-dom";
+import { doc, setDoc, getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+// import confetti from "canvas-confetti";
+import ConfettiAnimation from "./confetti";
 
 const costPerLead = 250;
 const minAmount = 5000;
@@ -16,24 +21,143 @@ const durationOptions = [
 ];
 const steps = ["Budget & Leads", "Duration"];
 
+type Transaction = {
+  txnid: string;
+  amount: number;
+  leads: number;
+  duration: string;
+  costPerLead: number;
+  timestamp: string;
+  campaignType: string;
+  status: string;
+  userId?: string;
+  userPhone?: string | null;
+};
+
+// const ConfettiAnimation = () => {
+//   useEffect(() => {
+//     const duration = 5000;
+//     const end = Date.now() + duration;
+
+//     const frame = () => {
+//       confetti({
+//         particleCount: 5,
+//         angle: 60,
+//         spread: 55,
+//         origin: { x: 0 },
+//       });
+
+//       confetti({
+//         particleCount: 5,
+//         angle: 120,
+//         spread: 55,
+//         origin: { x: 1 },
+//       });
+
+//       if (Date.now() < end) {
+//         requestAnimationFrame(frame);
+//       }
+//     };
+
+//     // ✅ Type-safe cleanup
+//     return () => {
+//       confetti.reset(); // just call, don't return
+//     };
+//   }, []);
+
+//   return null;
+// };
+
+// export default ConfettiAnimation;
+
 const Meta = () => {
   const [step, setStep] = useState(0);
   const [amount, setAmount] = useState(10000);
   const [leads, setLeads] = useState(Math.floor(amount / costPerLead));
   const [selectedDuration, setSelectedDuration] = useState("1 Week");
   const [campaignLaunched, setCampaignLaunched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<
+    "success" | "error" | null
+  >(null);
+  const [transactionData, setTransactionData] = useState<Transaction | null>(
+    null
+  );
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+  const auth = getAuth();
+  const db = getFirestore();
+  const user = auth.currentUser;
+
+  const handlePaymentSuccess = useCallback(
+    async (txnid: string) => {
+      try {
+        setLoading(true);
+
+        const transaction: Transaction = {
+          txnid,
+          amount,
+          leads,
+          duration: selectedDuration,
+          costPerLead,
+          timestamp: new Date().toISOString(),
+          campaignType: "Meta",
+          status: "completed",
+          userId: user?.uid,
+          userPhone: user?.phoneNumber || null,
+        };
+
+        if (user?.phoneNumber) {
+          const transactionRef = doc(
+            db,
+            `crm_users/${user.phoneNumber}/transactions`,
+            txnid
+          );
+          await setDoc(transactionRef, transaction);
+        }
+
+        setTransactionData(transaction);
+        setPaymentStatus("success");
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 5000);
+      } catch (error) {
+        console.error("Error saving transaction:", error);
+        setPaymentStatus("error");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [amount, leads, selectedDuration, user]
+  );
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const status = params.get("status");
+    const txnid = params.get("txnid");
+
+    if (status === "success" && txnid && user) {
+      handlePaymentSuccess(txnid);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate, user, handlePaymentSuccess]);
 
   const handlePayNow = async () => {
-    const txnid = "TXN" + Date.now(); // Or use a UUID
-    const productinfo = "Meta Campaign";
-    const firstname = "Ashish"; // or collect from user
-    const email = "ashish@example.com"; // optional
-    const phone = "9999999999"; // optional
+    if (!user) {
+      alert("Please sign in to make a payment");
+      return;
+    }
 
-    const surl =
-      "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/success";
-    const furl =
-      "https://asia-south1-starzapp.cloudfunctions.net/payu-webhook/payu-webhook/failure";
+    const txnid = "TXN" + Date.now();
+    const productinfo = "Meta Campaign";
+    const firstname = "Ashish";
+    const email = user.email || "ashish@example.com";
+    const phone = user.phoneNumber || "9999999999";
+
+    // Replace with your actual cloud function URLs
+    const surl = `https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/webhook/success?user=${user.phoneNumber}&txnid=${txnid}`;
+    const furl = `https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/webhook/failure`;
 
     try {
       const res = await fetch(
@@ -51,13 +175,13 @@ const Meta = () => {
             productinfo,
             surl,
             furl,
+            userPhone: user.phoneNumber,
           }),
         }
       );
 
       const { paymentUrl, payload } = await res.json();
 
-      // Create a hidden form and submit it to PayU
       const form = document.createElement("form");
       form.method = "POST";
       form.action = paymentUrl;
@@ -74,7 +198,8 @@ const Meta = () => {
       form.submit();
     } catch (error) {
       console.error("Payment Error:", error);
-      alert("Something went wrong during payment. Please try again.");
+      alert("Payment failed. Please try again.");
+      setPaymentStatus("error");
     }
   };
 
@@ -213,16 +338,27 @@ const Meta = () => {
     }
   };
 
-  const renderConfirmation = () => {
-    // Calculate pricing breakdown
-    const adsSpent = amount * 0.8; // 80% for ads
-    const platformFees = amount * 0.1; // 10% platform fees
-    const professionalFees = amount * 0.1; // 10% professional fees
+  const pricingBreakdown = useMemo(() => {
+    const adsSpent = amount * 0.8;
+    const platformFees = amount * 0.1;
+    const professionalFees = amount * 0.1;
     const taxableAmount = adsSpent + platformFees + professionalFees;
-    const gst = taxableAmount * 0.18; // 18% GST
-    const totalAmount = taxableAmount + gst;
+    const gst = taxableAmount * 0.18;
+    const totalAmount = parseFloat((taxableAmount + gst).toFixed(2));
 
-    // Format currency
+    return {
+      adsSpent,
+      platformFees,
+      professionalFees,
+      gst,
+      totalAmount,
+    };
+  }, [amount]);
+
+  const renderConfirmation = () => {
+    const { adsSpent, platformFees, professionalFees, gst, totalAmount } =
+      pricingBreakdown;
+
     const formatCurrency = (value: number) =>
       `₹${value.toLocaleString("en-IN", {
         minimumFractionDigits: 2,
@@ -251,9 +387,7 @@ const Meta = () => {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 14
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-800">Campaign Summary</h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details
           </p>
@@ -273,10 +407,6 @@ const Meta = () => {
               <p className="text-gray-500 text-sm">Duration</p>
               <p className="font-semibold">{selectedDuration}</p>
             </div>
-            {/* <div>
-              <p className="text-gray-500 text-sm">Cost Per Lead</p>
-              <p className="font-semibold">₹{costPerLead}</p>
-            </div> */}
           </div>
         </div>
 
@@ -336,12 +466,115 @@ const Meta = () => {
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-10">
+      <AnimatePresence>
+        {paymentStatus && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          >
+            {showConfetti && <ConfettiAnimation />}
+
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              className="bg-white rounded-xl p-8 max-w-md w-full relative"
+            >
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                  <p className="text-gray-700">
+                    Processing your transaction...
+                  </p>
+                </div>
+              ) : paymentStatus === "success" ? (
+                <>
+                  <div className="text-center">
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 10, -10, 0],
+                      }}
+                      transition={{ duration: 0.5 }}
+                      className="text-6xl mb-4"
+                    >
+                      🎉
+                    </motion.div>
+
+                    <h2 className="text-2xl font-bold text-green-600 mb-2">
+                      Payment Successful!
+                    </h2>
+                    <p className="text-gray-600 mb-6">
+                      Your campaign is now live
+                    </p>
+
+                    <div className="bg-gray-50 rounded-lg p-4 text-left mb-6">
+                      <p className="font-semibold mb-2">Transaction Details:</p>
+                      <p>
+                        <span className="text-gray-500">ID:</span>{" "}
+                        {transactionData?.txnid}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Amount:</span> ₹
+                        {transactionData?.amount?.toLocaleString()}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Leads:</span>{" "}
+                        {transactionData?.leads}
+                      </p>
+                      <p>
+                        <span className="text-gray-500">Duration:</span>{" "}
+                        {transactionData?.duration}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setPaymentStatus(null)}
+                      className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    >
+                      Continue to Dashboard
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center">
+                    <div className="text-6xl mb-4 text-red-500">❌</div>
+                    <h2 className="text-2xl font-bold text-red-600 mb-2">
+                      Payment Failed
+                    </h2>
+                    <p className="text-gray-600 mb-6">
+                      Please try again or contact support
+                    </p>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setPaymentStatus(null)}
+                        className="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handlePayNow}
+                        className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {campaignLaunched ? (
           renderConfirmation()
         ) : (
           <>
-            {/* Timeline */}
             <motion.div
               key="timeline"
               className="relative"
@@ -380,7 +613,6 @@ const Meta = () => {
               </div>
             </motion.div>
 
-            {/* Step Content */}
             <AnimatePresence mode="wait">
               <motion.div
                 key={`step-${step}`}
@@ -394,7 +626,6 @@ const Meta = () => {
               </motion.div>
             </AnimatePresence>
 
-            {/* Buttons */}
             <div className="flex justify-between pt-4">
               <button
                 onClick={prevStep}

@@ -809,7 +809,8 @@ const Meta = () => {
                       Payment Successful!
                     </h2>
                     <p className="text-gray-600 mb-6">
-                      Your campaign is now live and generating leads
+                      Your Ad Campaign will be live in 24-48hrs, check STARZ Ai
+                      CRM & STARZ App for Leads
                     </p>
 
                     <div className="bg-gray-50 rounded-lg p-4 text-left mb-6">

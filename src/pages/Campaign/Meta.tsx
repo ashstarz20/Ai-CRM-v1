@@ -156,7 +156,8 @@ const Meta = () => {
     const phone = user.phoneNumber || "9999999999";
 
     // Replace with your actual cloud function URLs
-    const surl = `https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/webhook/success?user=${user.phoneNumber}&txnid=${txnid}`;
+    // const surl = `https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/webhook/success?user=${user.phoneNumber}&txnid=${txnid}`;
+    const surl = `https://ai-crm-v1.vercel.app/dashboard/campaigns/meta?status=success&txnid=${txnid}`;
     const furl = `https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/webhook/failure`;
 
     try {
@@ -387,7 +388,9 @@ const Meta = () => {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">Campaign Summary</h2>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Campaign Summary 16
+          </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details
           </p>

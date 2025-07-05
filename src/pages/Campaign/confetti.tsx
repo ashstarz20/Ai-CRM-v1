@@ -26,10 +26,9 @@ const ConfettiAnimation = () => {
       }
     };
 
-    // ✅ Type-safe cleanup
-    return () => {
-      confetti.reset(); // just call, don't return
-    };
+    frame();
+
+    return () => confetti.reset();
   }, []);
 
   return null;

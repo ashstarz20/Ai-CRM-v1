@@ -11,11 +11,19 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-// import confetti from "canvas-confetti";
 import ConfettiAnimation from "./confetti";
+import {
+  FiArrowLeft,
+  FiArrowRight,
+  FiPocket,
+  FiCalendar,
+  FiUsers,
+  FiCheck,
+  FiX,
+} from "react-icons/fi";
 
 const costPerLead = 250;
-const minAmount = 5000;
+const minAmount = 6000;
 const maxAmount = 100000;
 
 const durationOptions = [
@@ -56,6 +64,8 @@ const Meta = () => {
   );
   const [showConfetti, setShowConfetti] = useState(false);
   const [previousCampaigns, setPreviousCampaigns] = useState<Transaction[]>([]);
+  const [viewMode, setViewMode] = useState<"list" | "create">("list");
+  const [showDetails, setShowDetails] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -82,7 +92,7 @@ const Meta = () => {
     };
 
     fetchPreviousCampaigns();
-  }, [user]);
+  }, [user, db]);
 
   const handlePaymentSuccess = useCallback(
     async (txnid: string) => {
@@ -118,6 +128,10 @@ const Meta = () => {
         setPaymentStatus("success");
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 5000);
+
+        // Update campaigns list
+        setPreviousCampaigns((prev) => [transaction, ...prev]);
+        setViewMode("list");
       } catch (error) {
         console.error("Error saving transaction:", error);
         setPaymentStatus("error");
@@ -125,7 +139,7 @@ const Meta = () => {
         setLoading(false);
       }
     },
-    [amount, leads, selectedDuration, user]
+    [amount, leads, selectedDuration, user, db]
   );
 
   useEffect(() => {
@@ -139,6 +153,25 @@ const Meta = () => {
     }
   }, [location, navigate, user, handlePaymentSuccess]);
 
+  const pricingBreakdown = useMemo(() => {
+    const adsSpent = amount * 0.8;
+    const platformFees = amount * 0.1;
+    const professionalFees = amount * 0.1;
+    const taxableAmount = adsSpent + platformFees + professionalFees;
+    const gst = taxableAmount * 0.18;
+    const totalAmount = parseFloat((taxableAmount + gst).toFixed(2));
+
+    return {
+      adsSpent,
+      platformFees,
+      professionalFees,
+      gst,
+      totalAmount,
+    };
+  }, [amount]);
+
+  const { totalAmount } = pricingBreakdown;
+
   const handlePayNow = async () => {
     if (!user) {
       alert("Please sign in to make a payment");
@@ -147,12 +180,10 @@ const Meta = () => {
 
     const txnid = "TXN" + Date.now();
     const productinfo = "Meta Campaign";
-    const firstname = "Ashish";
+    const firstname = user.displayName || "Ashish";
     const email = user.email || "ashish@example.com";
     const phone = user.phoneNumber || "9999999999";
 
-    // Replace with your actual cloud function URLs
-    // const surl = `https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/webhook/success?user=${user.phoneNumber}&txnid=${txnid}`;
     const surl = `https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/redirect?txnid=${txnid}`;
     const furl = `https://asia-south1-starzapp.cloudfunctions.net/payu-server/payu/webhook/failure`;
 
@@ -165,6 +196,7 @@ const Meta = () => {
           body: JSON.stringify({
             txnid,
             // amount: amount.toFixed(2),
+            // amount: totalAmount.toFixed(2),
             amount: 1.0,
             firstname,
             email,
@@ -224,6 +256,12 @@ const Meta = () => {
     setCampaignLaunched(true);
   };
 
+  const startNewCampaign = () => {
+    setViewMode("create");
+    setCampaignLaunched(false);
+    setStep(0);
+  };
+
   const renderStepContent = () => {
     switch (step) {
       case 0:
@@ -237,8 +275,9 @@ const Meta = () => {
             className="space-y-8"
           >
             <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-800 mb-2">
-                💰 Set Your Budget
+              <h2 className="text-xl font-bold text-gray-800 mb-2 flex items-center justify-center">
+                {/* <FiDollarSign className="mr-2 text-blue-500" /> */}
+                Set Your Budget
               </h2>
               <div className="text-3xl font-bold text-blue-600">
                 ₹{amount.toLocaleString()}
@@ -271,8 +310,9 @@ const Meta = () => {
             </div>
 
             <div className="pt-4 border-t border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
-                🎯 Estimated Leads
+              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center flex items-center justify-center">
+                <FiUsers className="mr-2 text-blue-500" />
+                Estimated Leads
               </h2>
               <div className="flex justify-center">
                 <input
@@ -301,8 +341,9 @@ const Meta = () => {
             className="space-y-8"
           >
             <div className="text-center">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">
-                ⏳ Campaign Duration
+              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center justify-center">
+                <FiCalendar className="mr-2 text-blue-500" />
+                Campaign Duration
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 {durationOptions.map((duration) => (
@@ -334,23 +375,6 @@ const Meta = () => {
         return null;
     }
   };
-
-  const pricingBreakdown = useMemo(() => {
-    const adsSpent = amount * 0.8;
-    const platformFees = amount * 0.1;
-    const professionalFees = amount * 0.1;
-    const taxableAmount = adsSpent + platformFees + professionalFees;
-    const gst = taxableAmount * 0.18;
-    const totalAmount = parseFloat((taxableAmount + gst).toFixed(2));
-
-    return {
-      adsSpent,
-      platformFees,
-      professionalFees,
-      gst,
-      totalAmount,
-    };
-  }, [amount]);
 
   const renderConfirmation = () => {
     const { adsSpent, platformFees, professionalFees, gst, totalAmount } =
@@ -384,7 +408,7 @@ const Meta = () => {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">STARZ-Ai Ads 20</h2>
+          <h2 className="text-2xl font-bold text-gray-800">STARZ-Ai Ads</h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details
           </p>
@@ -407,34 +431,51 @@ const Meta = () => {
           </div>
         </div>
 
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          Amount Breakup
-        </h3>
+        <h3 className="text-lg font-semibold text-gray-800 mb-4">Breakup</h3>
         <div className="space-y-3 mb-6">
+          {/* Always show this */}
           <div className="flex justify-between border-b pb-2">
             <span className="text-gray-600">Amount:</span>
             <span className="font-medium">₹{amount.toLocaleString()}</span>
           </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">Ads Spent:</span>
-            <span className="font-medium">{formatCurrency(adsSpent)}</span>
-          </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">Platform Fees (10%):</span>
-            <span className="font-medium">{formatCurrency(platformFees)}</span>
-          </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">Professional Fees (10%):</span>
-            <span className="font-medium">
-              {formatCurrency(professionalFees)}
-            </span>
-          </div>
-          <div className="flex justify-between border-b pb-2">
-            <span className="text-gray-600">GST (18%):</span>
-            <span className="font-medium text-red-600">
-              {formatCurrency(gst)}
-            </span>
-          </div>
+
+          {/* Toggleable content */}
+          {showDetails && (
+            <>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600">Ads Spent:</span>
+                <span className="font-medium">{formatCurrency(adsSpent)}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600">Platform Fees (10%):</span>
+                <span className="font-medium">
+                  {formatCurrency(platformFees)}
+                </span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600">Professional Fees (10%):</span>
+                <span className="font-medium">
+                  {formatCurrency(professionalFees)}
+                </span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-gray-600">GST (18%):</span>
+                <span className="font-medium text-red-600">
+                  {formatCurrency(gst)}
+                </span>
+              </div>
+            </>
+          )}
+
+          {/* Show/hide toggle */}
+          <button
+            onClick={() => setShowDetails((prev) => !prev)}
+            className="text-xs text-blue-600 hover:underline focus:outline-none"
+          >
+            {showDetails ? "Hide Breakdown" : "Show Full Breakdown"}
+          </button>
+
+          {/* Always show total */}
           <div className="flex justify-between pt-2 font-semibold text-lg">
             <span className="text-gray-800">Total Amount:</span>
             <span className="text-blue-700">{formatCurrency(totalAmount)}</span>
@@ -461,157 +502,178 @@ const Meta = () => {
     );
   };
 
-  if (!campaignLaunched && previousCampaigns.length > 0) {
-    return (
-      <div className="max-w-2xl mx-auto p-6 space-y-8">
-        <h2 className="text-2xl font-bold text-gray-800">
-          📊 Your Meta Campaigns
-        </h2>
+  const getCampaignProgress = (timestamp: string): number => {
+    const now = Date.now();
+    const start = new Date(timestamp).getTime();
+    const elapsed = now - start;
+    const total = 48 * 60 * 60 * 1000;
+    return Math.min(Math.max(Math.floor((elapsed / total) * 100), 0), 100);
+  };
 
-        <div className="space-y-4">
-          {previousCampaigns.map((txn) => (
-            <div
-              key={txn.txnid}
-              className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
-            >
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Txn ID: {txn.txnid}</span>
-                <span className="text-green-600 font-semibold">
-                  ₹{txn.amount.toLocaleString()}
-                </span>
-              </div>
-              <div className="mt-2 text-sm text-gray-700">
-                Leads: <b>{txn.leads}</b> | Duration: <b>{txn.duration}</b> |
-                Status:{" "}
-                <span
-                  className={`font-bold ${
+  const renderCampaignList = () => (
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+            STARZ-Ai Ads
+          </h1>
+          <p className="text-gray-600 mt-1">
+            Your active advertising campaigns
+          </p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={startNewCampaign}
+          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all"
+        >
+          <FiPocket className="text-lg" />
+          <span>Launch New Campaign</span>
+        </motion.button>
+      </div>
+
+      {previousCampaigns.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {previousCampaigns.map((txn, idx) => {
+            const progress = getCampaignProgress(txn.timestamp);
+
+            return (
+              <motion.div
+                key={txn.txnid}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="bg-white rounded-2xl border border-gray-200 shadow-md hover:shadow-xl transition-shadow overflow-hidden"
+              >
+                {/* Top Header */}
+                <div
+                  className={`p-5 border-b flex justify-between items-start ${
                     txn.status === "completed"
-                      ? "text-green-500"
-                      : "text-red-500"
+                      ? "bg-green-50 border-green-200"
+                      : "bg-yellow-50 border-yellow-200"
                   }`}
                 >
-                  {txn.status}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={() => setCampaignLaunched(false)}
-          className="mt-6 w-full py-3 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 transition"
-        >
-          Start New Campaign
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-2xl mx-auto p-6 space-y-10">
-      <AnimatePresence>
-        {paymentStatus && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
-          >
-            {showConfetti && <ConfettiAnimation />}
-
-            <motion.div
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              className="bg-white rounded-xl p-8 max-w-md w-full relative"
-            >
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
-                  <p className="text-gray-700">
-                    Processing your transaction...
-                  </p>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      Campaign #{idx + 1}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {new Date(txn.timestamp).toLocaleDateString("en-IN", {
+                        dateStyle: "medium",
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm ${
+                      txn.status === "completed"
+                        ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white"
+                        : "bg-gradient-to-r from-yellow-400 to-amber-500 text-white"
+                    }`}
+                  >
+                    {txn.status === "completed" ? "Active" : "Pending"}
+                  </span>
                 </div>
-              ) : paymentStatus === "success" ? (
-                <>
-                  <div className="text-center">
-                    <motion.div
-                      animate={{
-                        scale: [1, 1.2, 1],
-                        rotate: [0, 10, -10, 0],
-                      }}
-                      transition={{ duration: 0.5 }}
-                      className="text-6xl mb-4"
-                    >
-                      🎉
-                    </motion.div>
 
-                    <h2 className="text-2xl font-bold text-green-600 mb-2">
-                      Payment Successful!
-                    </h2>
-                    <p className="text-gray-600 mb-6">
-                      Your campaign is now live
-                    </p>
-
-                    <div className="bg-gray-50 rounded-lg p-4 text-left mb-6">
-                      <p className="font-semibold mb-2">Transaction Details:</p>
-                      <p>
-                        <span className="text-gray-500">ID:</span>{" "}
-                        {transactionData?.txnid}
-                      </p>
-                      <p>
-                        <span className="text-gray-500">Amount:</span> ₹
-                        {transactionData?.amount?.toLocaleString()}
-                      </p>
-                      <p>
-                        <span className="text-gray-500">Leads:</span>{" "}
-                        {transactionData?.leads}
-                      </p>
-                      <p>
-                        <span className="text-gray-500">Duration:</span>{" "}
-                        {transactionData?.duration}
+                {/* Body */}
+                <div className="p-6 space-y-5">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">💰 Budget</p>
+                      <p className="font-semibold text-gray-800">
+                        ₹{txn.amount.toLocaleString()}
                       </p>
                     </div>
-
-                    <button
-                      onClick={() => setPaymentStatus(null)}
-                      className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                      Continue to Dashboard
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-center">
-                    <div className="text-6xl mb-4 text-red-500">❌</div>
-                    <h2 className="text-2xl font-bold text-red-600 mb-2">
-                      Payment Failed
-                    </h2>
-                    <p className="text-gray-600 mb-6">
-                      Please try again or contact support
-                    </p>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setPaymentStatus(null)}
-                        className="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handlePayNow}
-                        className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                      >
-                        Retry
-                      </button>
+                    <div>
+                      <p className="text-gray-500">🎯 Leads</p>
+                      <p className="font-semibold text-gray-800">{txn.leads}</p>
                     </div>
+                    <div>
+                      <p className="text-gray-500">⏳ Duration</p>
+                      <p className="font-semibold text-gray-800">
+                        {txn.duration}
+                      </p>
+                    </div>
+                    {/* <div>
+                      <p className="text-gray-500">💸 Cost / Lead</p>
+                      <p className="font-semibold text-gray-800">
+                        ₹{txn.costPerLead || 250}
+                      </p>
+                    </div> */}
                   </div>
-                </>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+                  {/* Progress */}
+                  <div>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-500">Campaign Progress</span>
+                      <span className="font-medium text-gray-800">
+                        {progress}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 h-2 rounded-full">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${progress}%` }}
+                        transition={{ duration: 1 }}
+                        className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-600"
+                      />
+                    </div>
+                    <span className="text-xs text-gray-500 block mt-1 text-right">
+                      {progress < 100 ? "Running" : "Completed"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                {/* <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 flex justify-end">
+                  <motion.button
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.97 }}
+                    className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                  >
+                    View Details
+                  </motion.button>
+                </div> */}
+              </motion.div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="inline-block bg-blue-100 p-5 rounded-full mb-4">
+            <FiPocket className="text-4xl text-blue-600" />
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">
+            No Campaigns Yet
+          </h3>
+          <p className="text-gray-600 max-w-md mx-auto mb-6">
+            You haven't launched any Meta campaigns yet. Start your first
+            campaign to generate high-quality leads.
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={startNewCampaign}
+            className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all"
+          >
+            Launch First Campaign
+          </motion.button>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderCampaignCreation = () => (
+    <div className="max-w-2xl mx-auto p-6 space-y-10">
+      {/* Floating Button: Fixed to screen's top-right */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setViewMode("list")}
+        className="fixed top-24 right-14 z-50 flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-4 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all"
+      >
+        <FiArrowLeft className="text-white" />
+        <span>View Campaigns</span>
+      </motion.button>
 
       <AnimatePresence mode="wait">
         {campaignLaunched ? (
@@ -675,7 +737,8 @@ const Meta = () => {
                 disabled={step === 0}
                 className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 flex items-center font-medium transition-colors"
               >
-                <span className="mr-2 text-lg">←</span> Back
+                <FiArrowLeft className="mr-2" />
+                Back
               </button>
 
               {step < steps.length - 1 ? (
@@ -683,7 +746,8 @@ const Meta = () => {
                   onClick={nextStep}
                   className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center font-medium transition-colors shadow-md"
                 >
-                  Continue <span className="ml-2 text-lg">→</span>
+                  Continue
+                  <FiArrowRight className="ml-2" />
                 </button>
               ) : (
                 <motion.button
@@ -692,13 +756,141 @@ const Meta = () => {
                   onClick={launchCampaign}
                   className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-lg flex items-center font-bold transition-all"
                 >
-                  <span className="mr-2">🚀</span> Launch Campaign
+                  <FiPocket className="mr-2" />
+                  Launch Campaign
                 </motion.button>
               )}
             </div>
           </>
         )}
       </AnimatePresence>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 pb-10">
+      <AnimatePresence>
+        {paymentStatus && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+          >
+            {showConfetti && <ConfettiAnimation />}
+
+            <motion.div
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              className="bg-white rounded-xl p-8 max-w-md w-full relative"
+            >
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+                  <p className="text-gray-700">
+                    Processing your transaction...
+                  </p>
+                </div>
+              ) : paymentStatus === "success" ? (
+                <>
+                  <div className="text-center">
+                    <motion.div
+                      animate={{
+                        scale: [1, 1.2, 1],
+                        rotate: [0, 10, -10, 0],
+                      }}
+                      transition={{ duration: 0.5 }}
+                      className="text-6xl mb-4 text-blue-500"
+                    >
+                      <FiCheck className="mx-auto" />
+                    </motion.div>
+
+                    <h2 className="text-2xl font-bold text-blue-600 mb-2">
+                      Payment Successful!
+                    </h2>
+                    <p className="text-gray-600 mb-6">
+                      Your campaign is now live and generating leads
+                    </p>
+
+                    <div className="bg-gray-50 rounded-lg p-4 text-left mb-6">
+                      <p className="font-semibold mb-2 text-center">
+                        Transaction Details
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">ID:</span>
+                          <span className="font-medium">
+                            {transactionData?.txnid}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Amount:</span>
+                          <span className="font-medium">
+                            ₹{transactionData?.amount?.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Leads:</span>
+                          <span className="font-medium">
+                            {transactionData?.leads}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Duration:</span>
+                          <span className="font-medium">
+                            {transactionData?.duration}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setPaymentStatus(null);
+                        setViewMode("list");
+                      }}
+                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-lg hover:brightness-110 transition-all"
+                    >
+                      View Campaigns
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center">
+                    <div className="text-6xl mb-4 text-red-500">
+                      <FiX className="mx-auto" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-red-600 mb-2">
+                      Payment Failed
+                    </h2>
+                    <p className="text-gray-600 mb-6">
+                      Please try again or contact support
+                    </p>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setPaymentStatus(null)}
+                        className="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handlePayNow}
+                        className="flex-1 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {viewMode === "list" ? renderCampaignList() : renderCampaignCreation()}
     </div>
   );
 };

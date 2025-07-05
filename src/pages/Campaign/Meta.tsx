@@ -130,7 +130,7 @@ const Meta = () => {
         setTimeout(() => setShowConfetti(false), 5000);
 
         // Update campaigns list
-        setPreviousCampaigns((prev) => [transaction, ...prev]);
+        // setPreviousCampaigns((prev) => [transaction, ...prev]);
         setViewMode("list");
       } catch (error) {
         console.error("Error saving transaction:", error);
@@ -169,8 +169,6 @@ const Meta = () => {
       totalAmount,
     };
   }, [amount]);
-
-  const { totalAmount } = pricingBreakdown;
 
   const handlePayNow = async () => {
     if (!user) {

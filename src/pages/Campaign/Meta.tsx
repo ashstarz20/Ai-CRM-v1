@@ -3,7 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import Slider from "rc-slider";
 import "rc-slider/assets/index.css";
 import { useLocation, useNavigate } from "react-router-dom";
-import { doc, setDoc, getFirestore } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  getFirestore,
+  collection,
+  getDocs,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 // import confetti from "canvas-confetti";
 import ConfettiAnimation from "./confetti";
@@ -32,6 +38,7 @@ type Transaction = {
   status: string;
   userId?: string;
   userPhone?: string | null;
+  userName?: string | null;
 };
 
 const Meta = () => {
@@ -48,12 +55,34 @@ const Meta = () => {
     null
   );
   const [showConfetti, setShowConfetti] = useState(false);
+  const [previousCampaigns, setPreviousCampaigns] = useState<Transaction[]>([]);
 
   const location = useLocation();
   const navigate = useNavigate();
   const auth = getAuth();
   const db = getFirestore();
   const user = auth.currentUser;
+
+  useEffect(() => {
+    const fetchPreviousCampaigns = async () => {
+      if (!user?.phoneNumber) return;
+
+      const sanitizedPhone = user.phoneNumber.replace(/[^\d]/g, "");
+      const transactionsRef = collection(
+        db,
+        `crm_users/${sanitizedPhone}/transactions`
+      );
+
+      const snapshot = await getDocs(transactionsRef);
+      const campaigns = snapshot.docs.map((doc) => doc.data() as Transaction);
+
+      setPreviousCampaigns(
+        campaigns.filter((txn) => txn.campaignType === "Meta")
+      );
+    };
+
+    fetchPreviousCampaigns();
+  }, [user]);
 
   const handlePaymentSuccess = useCallback(
     async (txnid: string) => {
@@ -71,6 +100,7 @@ const Meta = () => {
           status: "completed",
           userId: user?.uid,
           userPhone: user?.phoneNumber || null,
+          userName: user?.displayName || "Unknown User",
         };
 
         if (user?.phoneNumber) {
@@ -354,9 +384,7 @@ const Meta = () => {
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 19
-          </h2>
+          <h2 className="text-2xl font-bold text-gray-800">STARZ-Ai Ads 20</h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details
           </p>
@@ -432,6 +460,52 @@ const Meta = () => {
       </motion.div>
     );
   };
+
+  if (!campaignLaunched && previousCampaigns.length > 0) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 space-y-8">
+        <h2 className="text-2xl font-bold text-gray-800">
+          📊 Your Meta Campaigns
+        </h2>
+
+        <div className="space-y-4">
+          {previousCampaigns.map((txn) => (
+            <div
+              key={txn.txnid}
+              className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+            >
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Txn ID: {txn.txnid}</span>
+                <span className="text-green-600 font-semibold">
+                  ₹{txn.amount.toLocaleString()}
+                </span>
+              </div>
+              <div className="mt-2 text-sm text-gray-700">
+                Leads: <b>{txn.leads}</b> | Duration: <b>{txn.duration}</b> |
+                Status:{" "}
+                <span
+                  className={`font-bold ${
+                    txn.status === "completed"
+                      ? "text-green-500"
+                      : "text-red-500"
+                  }`}
+                >
+                  {txn.status}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={() => setCampaignLaunched(false)}
+          className="mt-6 w-full py-3 bg-blue-600 text-white font-semibold rounded-lg shadow hover:bg-blue-700 transition"
+        >
+          Start New Campaign
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-10">

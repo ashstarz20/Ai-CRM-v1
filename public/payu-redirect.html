@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Redirecting...</title>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const txnid = params.get("txnid") || "";
+
+        // Redirect with GET method to React route
+        window.location.href = `/dashboard/campaigns/meta?status=success&txnid=${txnid}`;
+    </script>
+</head>
+
+<body>
+    <p>Redirecting...</p>
+</body>
+
+</html>

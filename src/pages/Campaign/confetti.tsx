@@ -28,7 +28,9 @@ const ConfettiAnimation = () => {
 
     frame();
 
-    return () => confetti.reset();
+    return () => {
+      confetti.reset(); // ✅ correctly called, not returned
+    };
   }, []);
 
   return null;

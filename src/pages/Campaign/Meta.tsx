@@ -34,42 +34,6 @@ type Transaction = {
   userPhone?: string | null;
 };
 
-// const ConfettiAnimation = () => {
-//   useEffect(() => {
-//     const duration = 5000;
-//     const end = Date.now() + duration;
-
-//     const frame = () => {
-//       confetti({
-//         particleCount: 5,
-//         angle: 60,
-//         spread: 55,
-//         origin: { x: 0 },
-//       });
-
-//       confetti({
-//         particleCount: 5,
-//         angle: 120,
-//         spread: 55,
-//         origin: { x: 1 },
-//       });
-
-//       if (Date.now() < end) {
-//         requestAnimationFrame(frame);
-//       }
-//     };
-
-//     // ✅ Type-safe cleanup
-//     return () => {
-//       confetti.reset(); // just call, don't return
-//     };
-//   }, []);
-
-//   return null;
-// };
-
-// export default ConfettiAnimation;
-
 const Meta = () => {
   const [step, setStep] = useState(0);
   const [amount, setAmount] = useState(10000);
@@ -110,9 +74,11 @@ const Meta = () => {
         };
 
         if (user?.phoneNumber) {
+          const sanitizedPhone = user.phoneNumber.replace(/[^\d]/g, "");
+
           const transactionRef = doc(
             db,
-            `crm_users/${user.phoneNumber}/transactions`,
+            `crm_users/${sanitizedPhone}/transactions`,
             txnid
           );
           await setDoc(transactionRef, transaction);
@@ -389,7 +355,7 @@ const Meta = () => {
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">
-            Campaign Summary 18
+            Campaign Summary 19
           </h2>
           <p className="text-gray-600 mt-2">
             Review and confirm your campaign details
